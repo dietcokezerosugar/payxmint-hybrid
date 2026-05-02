@@ -2,6 +2,7 @@ import { prisma } from "@/lib/prisma";
 import QRCode from "qrcode";
 import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
+import { GatewayRouter } from "../routing/GatewayRouter";
 
 export interface PaymentIntentOptions {
   amount: number;
@@ -29,8 +30,13 @@ export class PaymentEngine {
       throw new Error("Invalid API Key");
     }
 
-    if (keyData.isBlocked) {
-      throw new Error("API Key is blocked");
+    if (keyData.isBlocked || keyData.merchant.status !== "ACTIVE") {
+      throw new Error("API Key or Merchant account is blocked/suspended.");
+    }
+
+    // ── SaaS: Check Wallet Balance ──────────────────────────────────
+    if (keyData.merchant.walletBalance <= 0) {
+      throw new Error("Insufficient merchant wallet balance to process fees.");
     }
 
     // ── 2. Enforce Monthly Limit (BEFORE creating intent) ────────────
@@ -46,28 +52,12 @@ export class PaymentEngine {
       throw new Error("Order ID already exists");
     }
 
-    // ── 4. Select Merchant GPay Account (Enforce limits & Randomize) ─
-    const allAccounts = keyData.merchant.gpayAccounts;
-    
-    if (allAccounts.length === 0) {
-      throw new Error("ROUTING_ERROR: No Google Pay accounts linked to this merchant.");
-    }
+    // ── 4. Select Merchant GPay Account (Smart SaaS Routing) ────────
+    const account = await GatewayRouter.selectAccount(keyData.merchantId, amount);
 
-    const activeAccounts = allAccounts.filter(a => {
-      if (a.status !== "ACTIVE") return false;
-      if (a.monthlyLimit > 0 && a.usedAmount >= a.monthlyLimit) return false;
-      return true;
-    });
- 
-    if (activeAccounts.length === 0) {
-      const atLimit = allAccounts.some(a => a.monthlyLimit > 0 && a.usedAmount >= a.monthlyLimit);
-      if (atLimit) {
-        throw new Error("ROUTING_ERROR: All linked accounts have reached their monthly processing limits.");
-      } else {
-        throw new Error("ROUTING_ERROR: All linked accounts are currently set to INACTIVE.");
-      }
+    if (!account) {
+      throw new Error("ROUTING_ERROR: No available gateway accounts fit this amount or limits are exceeded.");
     }
-    const account = activeAccounts[Math.floor(Math.random() * activeAccounts.length)];
 
     // ── 5. Generate UPI Deep Link (exactly like BloomXHub) ───────────
     const merchantName = keyData.merchant.businessName || keyData.merchant.name;

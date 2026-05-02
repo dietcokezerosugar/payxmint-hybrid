@@ -7,17 +7,65 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id         String    @id @default(cuid())
+  email      String    @unique
+  password   String
+  name       String?
+  role       String    @default("MERCHANT") // ADMIN, MERCHANT, AGENT, STAFF
+  merchant   Merchant? @relation(fields: [merchantId], references: [id])
+  merchantId String?
+  createdAt  DateTime  @default(now())
+}
+
 model Merchant {
-  id                String             @id @default(cuid())
-  name              String
-  businessName      String?
-  redirectUrl       String?
-  webhookUrl        String?
-  createdAt         DateTime           @default(now())
-  updatedAt         DateTime           @updatedAt
-  apiKeys           ApiKey[]
-  paymentIntents    PaymentIntent[]
-  gpayAccounts      GooglePayAccount[]
+  id               String           @id @default(cuid())
+  name             String
+  businessName     String?
+  email            String           @unique
+  address          String?
+  phone            String?
+  status           String           @default("PENDING") // PENDING, ACTIVE, SUSPENDED
+  walletBalance    Float            @default(0)
+  commissionRate   Float            @default(0)
+  
+  // Whitelist
+  ipWhitelist      String?          // Comma separated IPs
+  webhookWhitelist String?          // Comma separated URLs
+  
+  // Relations
+  users            User[]
+  apiKeys          ApiKey[]
+  paymentIntents   PaymentIntent[]
+  gpayAccounts     GooglePayAccount[]
+  ledgerEntries    WalletLedger[]
+  agent            Agent?           @relation(fields: [agentId], references: [id])
+  agentId          String?
+  
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+}
+
+model Agent {
+  id             String     @id @default(cuid())
+  name           String
+  email          String     @unique
+  commissionRate Float      @default(0)
+  merchants      Merchant[]
+  createdAt      DateTime   @default(now())
+}
+
+model WalletLedger {
+  id            String   @id @default(cuid())
+  merchantId    String
+  merchant      Merchant @relation(fields: [merchantId], references: [id])
+  type          String   // CREDIT, DEBIT
+  amount        Float
+  description   String?
+  balanceAfter  Float
+  referenceType String?  // TRANSACTION, RECHARGE, PAYOUT
+  referenceId   String?
+  createdAt     DateTime @default(now())
 }
 
 model ApiKey {
@@ -82,18 +130,36 @@ model PaymentLink {
 }
 
 model GooglePayAccount {
-  id           String   @id @default(cuid())
-  merchantId   String
-  merchant     Merchant @relation(fields: [merchantId], references: [id])
-  name         String
-  email        String
-  upiId        String
-  reportId     String?
-  status       String   @default("ACTIVE")
-  lastSync     DateTime?
-  monthlyLimit Float    @default(0)
-  usedAmount   Float    @default(0)
-  createdAt    DateTime @default(now())
+  id             String    @id @default(cuid())
+  merchantId     String
+  merchant       Merchant  @relation(fields: [merchantId], references: [id])
+  name           String
+  email          String
+  upiId          String
+  reportId       String?
+  status         String    @default("ACTIVE")
+  lastSync       DateTime?
+  
+  // Advanced SaaS Limits
+  minTicket      Float     @default(0)
+  maxTicket      Float     @default(1000000)
+  dailyLimit     Float     @default(0)
+  weeklyLimit    Float     @default(0)
+  monthlyLimit   Float     @default(0)
+  
+  currentDaily   Float     @default(0)
+  currentWeekly  Float     @default(0)
+  currentMonthly Float     @default(0)
+  
+  createdAt      DateTime  @default(now())
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String
+  metadata    String?  // JSON string
+  timestamp   DateTime @default(now())
 }
 
 model ApiLog {

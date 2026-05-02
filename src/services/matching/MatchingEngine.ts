@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { logApi } from "@/lib/log";
 import axios from "axios";
+import { WalletService } from "../wallet/WalletService";
+import { NotificationService } from "../notifications/NotificationService";
 
 export class MatchingEngine {
   /**
@@ -88,6 +90,18 @@ export class MatchingEngine {
           usedAmount: { increment: txn.amount },
         },
       });
+
+      // ── SaaS: Process Wallet Fee ───────────────────────────────────
+      const fee = (txn.amount * intent.merchant.commissionRate) / 100;
+      if (fee > 0) {
+        await WalletService.debit(
+          intent.merchantId,
+          fee,
+          `Fee for Txn ${intent.referenceId} (${intent.merchant.commissionRate}%)`,
+          "TRANSACTION",
+          intent.id
+        );
+      }
     });
 
     await logApi("INFO", "Payment matched and verified", {
@@ -96,6 +110,14 @@ export class MatchingEngine {
       amount: txn.amount,
       payer: txn.payerName,
     });
+
+    // ── SaaS: Trigger Notifications ──────────────────────────────────
+    NotificationService.notifyTransactionSuccess(
+      intent.merchantId,
+      txn.amount,
+      intent.referenceId,
+      newTxn.utr || undefined
+    ).catch(e => console.error("[NOTIFY_ERR]", e.message));
 
     // ── 5. Trigger webhook (async, non-blocking) ─────────────────────
     if (intent.merchant.webhookUrl) {
