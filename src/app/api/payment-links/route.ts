@@ -2,16 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const merchantId = "local-dev";
+  const merchant = await prisma.merchant.findFirst();
+  if (!merchant) return NextResponse.json({ status: "success", data: [] });
+
   const links = await prisma.paymentLink.findMany({
-    where: { merchantId },
+    where: { merchantId: merchant.id },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json({ status: "success", data: links });
 }
 
 export async function POST(req: NextRequest) {
-  const merchantId = "local-dev";
+  const merchant = await prisma.merchant.findFirst();
+  if (!merchant) return NextResponse.json({ status: "failure", message: "No merchant found" }, { status: 404 });
+
   const body = await req.json();
   const { title, amount, description } = body;
 
@@ -21,7 +25,7 @@ export async function POST(req: NextRequest) {
 
   // Get the first active API key for this merchant
   const apiKey = await prisma.apiKey.findFirst({
-    where: { merchantId, isBlocked: false },
+    where: { merchantId: merchant.id, isBlocked: false },
   });
 
   if (!apiKey) {
@@ -35,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   const link = await prisma.paymentLink.create({
     data: {
-      merchantId,
+      merchantId: merchant.id,
       title,
       amount: parseFloat(amount),
       description: description || null,

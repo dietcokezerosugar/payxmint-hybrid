@@ -30,17 +30,15 @@ export default async function PaymentLinkPage({ params }: { params: { slug: stri
     );
   }
 
+  let intent;
   try {
-    const intent = await PaymentEngine.createIntent({
+    intent = await PaymentEngine.createIntent({
       amount: link.amount,
       orderId,
       apiKey: apiKey.key,
     });
-
-    // Redirect to the standard payment page
-    redirect(`/pay/${intent.paymentToken}`);
   } catch (error: any) {
-    console.error("Payment Intent Error:", error);
+    console.error("DEBUG: Payment Link Failed:", error.message || error);
     return (
       <div className="min-h-screen flex flex-col items-center justify-center bg-[#FDFDFD] px-6 text-center">
         <div className="w-20 h-20 bg-rose-50 rounded-[32px] flex items-center justify-center text-rose-500 mb-8 border border-rose-100">
@@ -57,4 +55,7 @@ export default async function PaymentLinkPage({ params }: { params: { slug: stri
       </div>
     );
   }
+
+  // Redirect MUST be outside the try/catch in Next.js
+  redirect(`/pay/${intent.paymentToken}`);
 }

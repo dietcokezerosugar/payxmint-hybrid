@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
+  const merchant = await prisma.merchant.findFirst();
+  if (!merchant) return NextResponse.json({ status: "success", data: [] });
+
   const accounts = await prisma.googlePayAccount.findMany({
-    where: { merchantId: "local-dev", NOT: { status: "DELETED" } },
+    where: { merchantId: merchant.id, NOT: { status: "DELETED" } },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json({ status: "success", data: accounts });
@@ -17,9 +20,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "failure", message: "name, email, upiId are required" }, { status: 400 });
   }
 
+  const merchant = await prisma.merchant.findFirst();
+  if (!merchant) return NextResponse.json({ status: "failure", message: "No merchant found" }, { status: 404 });
+
   // GPay 9 Singleton Pattern: Check if account already exists
   const existing = await prisma.googlePayAccount.findFirst({
-    where: { name, merchantId: "local-dev" }
+    where: { name, merchantId: merchant.id }
   });
 
   if (existing) {
@@ -32,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   const account = await prisma.googlePayAccount.create({
     data: {
-      merchantId: "local-dev",
+      merchantId: merchant.id,
       name,
       email,
       upiId,

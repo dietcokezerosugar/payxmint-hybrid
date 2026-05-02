@@ -3,9 +3,11 @@ import { Download, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-re
 import Link from "next/link";
 
 export default async function TransactionsPage() {
-  const merchantId = "local-dev";
+  const merchant = await prisma.merchant.findFirst();
+  if (!merchant) return <div className="p-20 text-center font-black text-slate-500 uppercase tracking-widest">No Merchant Account Found</div>;
+
   const intents = await prisma.paymentIntent.findMany({
-    where: { merchantId },
+    where: { merchantId: merchant.id },
     include: { transaction: true },
     orderBy: { createdAt: "desc" },
     take: 100,

@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const merchantId = "local-dev";
+  const merchant = await prisma.merchant.findFirst();
+  if (!merchant) return new NextResponse("No merchant found", { status: 404 });
 
   const intents = await prisma.paymentIntent.findMany({
-    where: { merchantId },
+    where: { merchantId: merchant.id },
     include: { transaction: true },
     orderBy: { createdAt: "desc" },
   });

@@ -3,16 +3,20 @@ import { prisma } from "@/lib/prisma";
 import crypto from "crypto";
 
 export async function GET() {
-  const merchantId = "local-dev";
+  const merchant = await prisma.merchant.findFirst();
+  if (!merchant) return NextResponse.json({ status: "success", data: [] });
+
   const keys = await prisma.apiKey.findMany({
-    where: { merchantId },
+    where: { merchantId: merchant.id },
     orderBy: { createdAt: "desc" },
   });
   return NextResponse.json({ status: "success", data: keys });
 }
 
 export async function POST(req: NextRequest) {
-  const merchantId = "local-dev";
+  const merchant = await prisma.merchant.findFirst();
+  if (!merchant) return NextResponse.json({ status: "failure", message: "No merchant found" }, { status: 404 });
+
   const body = await req.json();
   const { monthly_limit } = body;
 
@@ -21,7 +25,7 @@ export async function POST(req: NextRequest) {
   const apiKey = await prisma.apiKey.create({
     data: {
       key,
-      merchantId,
+      merchantId: merchant.id,
       monthlyLimit: monthly_limit || 100000,
     },
   });
