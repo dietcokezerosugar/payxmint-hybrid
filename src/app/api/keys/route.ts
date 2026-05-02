@@ -1,0 +1,49 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
+import crypto from "crypto";
+
+export async function GET() {
+  const merchantId = "local-dev";
+  const keys = await prisma.apiKey.findMany({
+    where: { merchantId },
+    orderBy: { createdAt: "desc" },
+  });
+  return NextResponse.json({ status: "success", data: keys });
+}
+
+export async function POST(req: NextRequest) {
+  const merchantId = "local-dev";
+  const body = await req.json();
+  const { monthly_limit } = body;
+
+  const key = `wc_${crypto.randomBytes(16).toString("hex")}`;
+
+  const apiKey = await prisma.apiKey.create({
+    data: {
+      key,
+      merchantId,
+      monthlyLimit: monthly_limit || 100000,
+    },
+  });
+
+  return NextResponse.json({ status: "success", data: apiKey });
+}
+
+export async function PATCH(req: NextRequest) {
+  const body = await req.json();
+  const { id, isBlocked, monthlyLimit } = body;
+
+  if (!id) {
+    return NextResponse.json({ status: "failure", message: "Missing key id" }, { status: 400 });
+  }
+
+  const updated = await prisma.apiKey.update({
+    where: { id },
+    data: {
+      ...(typeof isBlocked === "boolean" && { isBlocked }),
+      ...(monthlyLimit && { monthlyLimit: parseFloat(monthlyLimit) }),
+    },
+  });
+
+  return NextResponse.json({ status: "success", data: updated });
+}

@@ -1,0 +1,69 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: #0066FF;
+  --color-primary-foreground: #FFFFFF;
+  --color-secondary: #F5F5F7;
+  --color-secondary-foreground: #1D1D1F;
+  --color-accent: #0066FF;
+  --color-accent-foreground: #FFFFFF;
+  
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+
+:root {
+  --background: #FFFFFF;
+  --foreground: #1D1D1F;
+  --card: #FFFFFF;
+  --card-foreground: #1D1D1F;
+  --popover: #FFFFFF;
+  --popover-foreground: #1D1D1F;
+  --primary: #0066FF;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F5F5F7;
+  --secondary-foreground: #1D1D1F;
+  --muted: #F5F5F7;
+  --muted-foreground: #86868B;
+  --accent: #F5F5F7;
+  --accent-foreground: #1D1D1F;
+  --destructive: #FF3B30;
+  --destructive-foreground: #FFFFFF;
+  --border: #D2D2D7;
+  --input: #D2D2D7;
+  --ring: #0066FF;
+  --radius: 0.75rem;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+}
+
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(210, 210, 215, 0.3);
+}
+
+.apple-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+  transition: all 0.3s ease;
+}
+
+.apple-card:hover {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04);
+}

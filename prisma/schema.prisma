@@ -1,0 +1,105 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Merchant {
+  id                String             @id @default(cuid())
+  name              String
+  businessName      String?
+  redirectUrl       String?
+  webhookUrl        String?
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+  apiKeys           ApiKey[]
+  paymentIntents    PaymentIntent[]
+  gpayAccounts      GooglePayAccount[]
+}
+
+model ApiKey {
+  id           String          @id @default(cuid())
+  key          String          @unique
+  merchantId   String
+  merchant     Merchant        @relation(fields: [merchantId], references: [id])
+  monthlyLimit Float           @default(100000)
+  usedAmount   Float           @default(0)
+  isBlocked    Boolean         @default(false)
+  createdAt    DateTime        @default(now())
+  paymentIntents PaymentIntent[]
+}
+
+model PaymentIntent {
+  id               String      @id @default(cuid())
+  merchantId       String
+  merchant         Merchant    @relation(fields: [merchantId], references: [id])
+  apiKeyId         String
+  apiKey           ApiKey      @relation(fields: [apiKeyId], references: [id])
+  amount           Float
+  status           String      @default("PENDING") // PENDING, SUCCESS, FAILED, EXPIRED
+  referenceId      String      @unique // order_id from merchant
+  customerMobile   String?
+  customerEmail    String?
+  redirectUrl      String?
+  merchantName     String?
+  upiDeepLink      String?
+  qrData           String?
+  paymentToken     String?     @unique // for hosted pages
+  payerName        String?
+  payerUpiId       String?
+  transactionId    String?     @unique // linked after verification
+  transaction      Transaction? @relation(fields: [transactionId], references: [id])
+  createdAt        DateTime    @default(now())
+  expireAt         DateTime?
+  updatedAt        DateTime    @updatedAt
+}
+
+model Transaction {
+  id            String         @id @default(cuid())
+  externalId    String         @unique // merchantTransactionId from GPay
+  utr           String?
+  amount        Float
+  payerName     String?
+  payerUpiId    String?
+  note          String?
+  timestamp     DateTime       @default(now())
+  paymentIntent PaymentIntent?
+}
+
+model PaymentLink {
+  id           String   @id @default(cuid())
+  merchantId   String
+  title        String
+  amount       Float
+  description  String?
+  slug         String   @unique
+  apiKeyId     String
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+}
+
+model GooglePayAccount {
+  id           String   @id @default(cuid())
+  merchantId   String
+  merchant     Merchant @relation(fields: [merchantId], references: [id])
+  name         String
+  email        String
+  upiId        String
+  reportId     String?
+  status       String   @default("ACTIVE")
+  lastSync     DateTime?
+  monthlyLimit Float    @default(0)
+  usedAmount   Float    @default(0)
+  createdAt    DateTime @default(now())
+}
+
+model ApiLog {
+  id        String   @id @default(cuid())
+  level     String   @default("INFO")
+  message   String
+  metadata  String?  // JSON string
+  timestamp DateTime @default(now())
+}
