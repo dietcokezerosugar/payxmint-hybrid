@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import QRCode from "qrcode";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,10 @@ export async function GET(req: NextRequest, { params }: { params: { token: strin
   const amount = intent.amount;
   const referenceId = intent.referenceId;
   const upiDeepLink = intent.upiDeepLink || "";
-  const qrData = intent.qrData || "";
+  
+  // Generate QR on the fly for "Instant Load" performance
+  const qrData = await QRCode.toDataURL(upiDeepLink, { width: 400, margin: 2 });
+  
   const status = intent.status;
   const expireAt = intent.expireAt ? intent.expireAt.toISOString() : "";
 

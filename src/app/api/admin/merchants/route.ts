@@ -28,20 +28,30 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { id, name, businessName, email, status, walletBalance, commissionRate } = body;
+    const { id, name, businessName, email, status, walletBalance, commissionRate, disableWallet, agentId } = body;
 
     if (id) {
       // Update
       const updated = await prisma.merchant.update({
         where: { id },
-        data: { name, businessName, email, status, walletBalance, commissionRate }
+        data: { name, businessName, email, status, walletBalance, commissionRate, disableWallet, agentId }
       });
       return NextResponse.json({ status: "success", data: updated });
     }
 
     // Create
     const created = await prisma.merchant.create({
-      data: { name, businessName, email, status: status || "PENDING", walletBalance: walletBalance || 0, commissionRate: commissionRate || 0 }
+      data: { 
+        name, 
+        businessName, 
+        email, 
+        status: status || "PENDING", 
+        walletBalance: walletBalance || 0, 
+        commissionRate: commissionRate || 0,
+        disableWallet: disableWallet || false,
+        agentId: agentId || null,
+        trialEndsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // 3 days trial
+      }
     });
     return NextResponse.json({ status: "success", data: created });
   } catch (error: any) {

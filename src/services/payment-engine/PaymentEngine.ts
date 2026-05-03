@@ -41,22 +41,19 @@ export class PaymentEngine {
       throw new Error(`SECURITY_ERROR: IP Address ${ip} is not authorized for this merchant.`);
     }
 
-    // ── SaaS: Check Wallet Balance ──────────────────────────────────
-    if (keyData.merchant.walletBalance <= 0) {
-      throw new Error("Insufficient merchant wallet balance to process fees.");
+    // ── SaaS: Check Wallet Balance (Strict Fee Coverage) ────────────
+    const isTrialActive = keyData.merchant.trialEndsAt && new Date(keyData.merchant.trialEndsAt) > new Date();
+
+    if (!keyData.merchant.disableWallet && !isTrialActive) {
+      const expectedFee = (amount * (keyData.merchant.commissionRate || 0)) / 100;
+      if (keyData.merchant.walletBalance < expectedFee) {
+        throw new Error(`INSUFFICIENT_FUNDS: Wallet balance (₹${keyData.merchant.walletBalance}) cannot cover the transaction fee (₹${expectedFee.toFixed(2)}). Please recharge.`);
+      }
     }
 
     // ── 2. Enforce Monthly Limit (BEFORE creating intent) ────────────
     if (keyData.usedAmount >= keyData.monthlyLimit) {
       throw new Error("API Key monthly limit reached. Please upgrade or wait for reset.");
-    }
-
-    // ── 3. Duplicate Order ID check ──────────────────────────────────
-    const existing = await prisma.paymentIntent.findUnique({
-      where: { referenceId: orderId },
-    });
-    if (existing) {
-      throw new Error("Order ID already exists");
     }
 
     // ── 4. Select Merchant GPay Account (Smart SaaS Routing) ────────
@@ -79,33 +76,74 @@ export class PaymentEngine {
     });
     const upiDeepLink = `upi://pay?${upiParams.toString()}`;
 
-    // ── 6. Generate QR Code as base64 data URI ───────────────────────
-    const qrData = await QRCode.toDataURL(upiDeepLink, { width: 300, margin: 2 });
-
-    // ── 7. Generate payment token (md5 of order_id + timestamp + random)
-    //    exactly like BloomXHub: md5($order_id . time() . rand(1000,9999))
+    // ── 6. Generate payment token (md5 of order_id + timestamp + random)
     const tokenString = orderId + Date.now().toString() + Math.floor(1000 + Math.random() * 9000).toString();
     const paymentToken = crypto.createHash("md5").update(tokenString).digest("hex");
 
-    // ── 8. Create Intent in DB (atomic) ──────────────────────────────
+    // ── 7. Create Intent in DB (atomic) ──────────────────────────────
     const expireAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    const intent = await prisma.paymentIntent.create({
+    try {
+      const intent = await prisma.paymentIntent.create({
+        data: {
+          merchantId: keyData.merchantId,
+          apiKeyId: keyData.id,
+          amount,
+          referenceId: orderId,
+          customerMobile: customerMobile || null,
+          customerEmail: customerEmail || null,
+          redirectUrl: redirectUrl || keyData.merchant.redirectUrl || null,
+          upiDeepLink,
+          paymentToken,
+          expireAt,
+        },
+      });
+      return intent;
+    } catch (e: any) {
+      if (e.code === 'P2002') throw new Error("Order ID already exists");
+      throw e;
+    }
+  }
+
+  /**
+   * Create a special intent for Wallet Recharge (Billed to Admin Account)
+   */
+  static async createRechargeIntent(merchantId: string, amount: number) {
+    const apiKey = await prisma.apiKey.findFirst({ where: { merchantId } });
+    if (!apiKey) throw new Error("Merchant has no API keys.");
+
+    const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
+    if (!merchant) throw new Error("Merchant not found");
+
+    const account = await GatewayRouter.selectAccount(merchantId, amount, true);
+    if (!account) throw new Error("No admin accounts available for recharge.");
+
+    const orderId = `RCG_${Math.floor(Date.now() / 1000)}_${Math.floor(Math.random() * 1000)}`;
+    const upiParams = new URLSearchParams({
+      pa: account.upiId,
+      pn: "WaveCollect SaaS",
+      am: amount.toFixed(2),
+      tid: orderId,
+      tr: orderId,
+      tn: `Wallet Recharge: ${merchant.name}`,
+      cu: "INR",
+    });
+    const upiDeepLink = `upi://pay?${upiParams.toString()}`;
+
+    const tokenString = orderId + Date.now().toString();
+    const paymentToken = crypto.createHash("md5").update(tokenString).digest("hex");
+
+    return await prisma.paymentIntent.create({
       data: {
-        merchantId: keyData.merchantId,
-        apiKeyId: keyData.id,
+        merchantId,
+        apiKeyId: apiKey.id,
         amount,
         referenceId: orderId,
-        customerMobile: customerMobile || null,
-        customerEmail: customerEmail || null,
-        redirectUrl: redirectUrl || keyData.merchant.redirectUrl || null,
         upiDeepLink,
-        qrData,
         paymentToken,
-        expireAt,
-      },
+        isRecharge: true,
+        expireAt: new Date(Date.now() + 30 * 60 * 1000),
+      }
     });
-
-    return intent;
   }
 }

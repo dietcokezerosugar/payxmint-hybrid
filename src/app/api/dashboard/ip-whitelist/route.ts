@@ -32,16 +32,21 @@ export async function POST(req: NextRequest) {
     const merchant = await prisma.merchant.findFirst();
     if (!merchant) return NextResponse.json({ error: "No merchant found" }, { status: 404 });
 
-    const { ipAddress } = await req.json();
+    const body = await req.json();
+    let { ipAddress, webhookUrl, acceptedTerms } = body;
 
-    if (!ipAddress) {
-      return NextResponse.json({ error: "ipAddress is required" }, { status: 400 });
+    if (!acceptedTerms) {
+      return NextResponse.json({ error: "You must accept the legal terms to proceed." }, { status: 400 });
     }
 
-    // Basic IP validation
-    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}(\/\d{1,2})?$/;
-    if (!ipRegex.test(ipAddress.trim())) {
-      return NextResponse.json({ error: "Invalid IP address format" }, { status: 400 });
+    if (!ipAddress) {
+      const forwardedFor = req.headers.get("x-forwarded-for");
+      ipAddress = forwardedFor ? forwardedFor.split(",")[0] : "unknown";
+      if (ipAddress === "::1" || ipAddress === "127.0.0.1") ipAddress = "192.168.1.100";
+    }
+
+    if (!ipAddress || ipAddress === "unknown") {
+      return NextResponse.json({ error: "Could not detect your IP address. Please enter it manually." }, { status: 400 });
     }
 
     // Check if already requested
@@ -57,6 +62,8 @@ export async function POST(req: NextRequest) {
       data: {
         merchantId: merchant.id,
         ipAddress: ipAddress.trim(),
+        webhookUrl: webhookUrl || null,
+        acceptedTerms: true,
       },
     });
 

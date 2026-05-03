@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import QRCode from "qrcode";
 
 interface Props {
   token: string;
@@ -8,7 +9,7 @@ interface Props {
   merchantName: string;
   referenceId: string;
   upiDeepLink: string;
-  qrData: string;
+  qrData?: string | null;
   status: string;
   expireAt?: string;
 }
@@ -19,11 +20,12 @@ export default function PaymentPageClient({
   merchantName,
   referenceId,
   upiDeepLink,
-  qrData,
+  qrData: serverQr,
   status: initialStatus,
   expireAt,
 }: Props) {
   const [status, setStatus] = useState(initialStatus);
+  const [qrData, setQrData] = useState<string | null>(serverQr || null);
   const [payerName, setPayerName] = useState<string | null>(null);
   const [utr, setUtr] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("qr");
@@ -45,9 +47,14 @@ export default function PaymentPageClient({
 
   const [mounted, setMounted] = useState(false);
 
-  // Mark as mounted (client-side only)
+  // Mark as mounted (client-side only) and generate QR
   useEffect(() => {
     setMounted(true);
+    if (!qrData && upiDeepLink) {
+      QRCode.toDataURL(upiDeepLink, { width: 300, margin: 2 })
+        .then(setQrData)
+        .catch(err => console.error("QR Generation Error:", err));
+    }
     console.log("[WaveCollect] Payment page mounted. Status:", initialStatus, "Token:", token);
   }, []);
 
@@ -245,7 +252,13 @@ export default function PaymentPageClient({
             {/* QR Code */}
             <div style={styles.qrWrapper}>
               <div style={styles.qrBorder}>
-                <img src={qrData} alt="QR Code" style={{ width: 180, height: 180, borderRadius: 12, display: "block" }} />
+                {qrData ? (
+                  <img src={qrData} alt="QR Code" style={{ width: 180, height: 180, borderRadius: 12, display: "block" }} />
+                ) : (
+                  <div style={{ width: 180, height: 180, display: "flex", alignItems: "center", justifyContent: "center", background: "#f8fafc", borderRadius: 12 }}>
+                    <div style={styles.loadingSpinner}></div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -415,4 +428,24 @@ const styles: Record<string, React.CSSProperties> = {
   successDetails: { background: "#f8fafc", borderRadius: 20, padding: 20, textAlign: "left" as const, display: "flex", flexDirection: "column" as const, gap: 10, border: "1px solid #f1f5f9" },
   detailLabel: { display: "block", fontSize: 9, fontWeight: 900, textTransform: "uppercase" as const, letterSpacing: 2, color: "#94a3b8" },
   detailValue: { display: "block", fontSize: 14, fontWeight: 700, color: "#0f172a" },
+  loadingSpinner: {
+    width: 24,
+    height: 24,
+    border: "3px solid #e2e8f0",
+    borderTop: "3px solid #4f46e5",
+    borderRadius: "50%",
+    animation: "spin 1s linear infinite",
+  }
 };
+
+// Add global animation
+if (typeof document !== 'undefined') {
+  const style = document.createElement('style');
+  style.innerHTML = `
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  `;
+  document.head.appendChild(style);
+}

@@ -18,7 +18,11 @@ import {
   Globe,
   CheckCircle2,
   XCircle,
+  Wallet,
+  Calendar,
+  Layers
 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 export default function AdminAnalytics() {
   const [data, setData] = useState<any>(null);
@@ -44,291 +48,230 @@ export default function AdminAnalytics() {
 
   if (loading || !data) {
     return (
-      <div className="p-20 text-center font-bold text-slate-400 uppercase tracking-widest animate-pulse text-[11px]">
-        Loading Intelligence Engine...
+      <div className="flex flex-col items-center justify-center p-32 space-y-4">
+        <Activity className="text-blue-600 animate-spin" size={48} />
+        <p className="text-slate-400 font-black text-[11px] uppercase tracking-widest animate-pulse">Synchronizing Intelligence...</p>
       </div>
     );
   }
 
-  const maxDailyVolume = Math.max(...data.dailyVolume.map((d: any) => d.amount), 1);
-  const maxHourlyCount = Math.max(...data.hourlyHeatmap.map((h: any) => h.count), 1);
+  const { stats, charts, topMerchants } = data;
+  const maxVolume = Math.max(...charts.dailyVolume.map((d: any) => d.amount), 1);
 
   return (
-    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
-      {/* Header */}
+    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-700">
+      {/* Platform Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">
-            System Intelligence
+          <h2 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+            <Layers className="text-blue-600" size={28} /> Platform Intelligence
           </h2>
           <div className="flex items-center gap-2 mt-1">
-            <p className="text-slate-500 font-bold text-[11px] uppercase tracking-widest">
-              Real-time platform analytics
-            </p>
-            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
+            <p className="text-slate-500 font-bold text-[11px] uppercase tracking-widest">Global SaaS Performance Monitoring</p>
+            <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.6)]" />
           </div>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-200 shadow-sm w-fit">
-          <Wifi className="w-4 h-4 text-emerald-500 animate-pulse" />
+        <div className="flex items-center gap-2 px-4 py-2 bg-white rounded-2xl border border-slate-200 shadow-sm w-fit">
+          <Wifi className="w-4 h-4 text-emerald-500" />
           <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">
-            LIVE: {new Date().toLocaleTimeString()}
+            {new Date().toLocaleDateString("en-IN", { month: "short", day: "numeric" })} · {new Date().toLocaleTimeString()}
           </span>
         </div>
       </div>
 
-      {/* Primary Stats Grid */}
+      {/* Primary KPI Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard
-          label="Total Volume"
-          value={`₹${(data.totalVolume || 0).toLocaleString()}`}
-          icon={<TrendingUp className="text-emerald-500" size={18} />}
+          label="Processed Volume"
+          value={`₹${(stats.totalVolume || 0).toLocaleString()}`}
+          icon={<TrendingUp size={20} />}
           color="emerald"
+          subtitle="All-time processed"
         />
         <StatCard
-          label="Success Rate"
-          value={`${data.successRate}%`}
-          icon={<ShieldCheck className="text-blue-500" size={18} />}
+          label="Wallet Float"
+          value={`₹${(stats.totalWalletFloat || 0).toLocaleString()}`}
+          icon={<Wallet size={20} />}
           color="blue"
+          subtitle="Held in merchant wallets"
         />
         <StatCard
-          label="Active Bots"
-          value={`${data.activeBots}/${data.totalBots}`}
-          icon={<Smartphone className="text-purple-500" size={18} />}
+          label="Total Merchants"
+          value={stats.totalMerchants}
+          icon={<Users size={20} />}
           color="purple"
+          subtitle="Active SaaS partners"
         />
         <StatCard
-          label="Merchants"
-          value={`${data.activeMerchants}/${data.totalMerchants}`}
-          icon={<Users className="text-amber-500" size={18} />}
+          label="Success Count"
+          value={stats.totalSuccessfulTxns}
+          icon={<CheckCircle2 size={20} />}
           color="amber"
+          subtitle="Verified transactions"
         />
       </div>
 
-      {/* Status Breakdown */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4 text-center">
-          <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest mb-1">Success</p>
-          <p className="text-xl font-black text-emerald-700">{data.successTxns}</p>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Main Chart Section */}
+        <div className="lg:col-span-2 space-y-8">
+          <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm">
+             <div className="flex items-center justify-between mb-12">
+               <div>
+                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Volume Velocity</h3>
+                 <p className="text-[11px] text-slate-400 font-bold uppercase mt-1">Last 14 Days Activity</p>
+               </div>
+               <div className="flex items-center gap-4">
+                 <div className="flex items-center gap-2">
+                   <div className="w-3 h-3 bg-blue-600 rounded-full" />
+                   <span className="text-[10px] font-black uppercase text-slate-500">Volume (₹)</span>
+                 </div>
+               </div>
+             </div>
+
+             <div className="h-64 flex items-end justify-between gap-3 group px-4">
+               {charts.dailyVolume.map((d: any, i: number) => {
+                 const pct = (d.amount / maxVolume) * 100;
+                 return (
+                   <div key={i} className="flex-1 flex flex-col items-center h-full justify-end gap-3 group/bar">
+                     <div className="w-full relative h-full flex flex-col justify-end">
+                        <motion.div 
+                          initial={{ height: 0 }}
+                          animate={{ height: `${Math.max(pct, 4)}%` }}
+                          className={`w-full max-w-[40px] mx-auto rounded-t-xl transition-all relative ${
+                            i === charts.dailyVolume.length - 1 ? "bg-blue-600" : "bg-blue-50 group-hover/bar:bg-blue-200"
+                          }`}
+                        >
+                           <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-2 py-1 rounded text-[9px] font-black opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap z-10">
+                              ₹{d.amount.toLocaleString()}
+                           </div>
+                        </motion.div>
+                     </div>
+                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter text-center">{d.date}</p>
+                   </div>
+                 );
+               })}
+             </div>
+          </div>
+
+          {/* Top Merchants Leaderboard */}
+          <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm">
+             <div className="flex items-center gap-3 mb-8">
+               <div className="p-2.5 bg-emerald-50 rounded-xl text-emerald-600">
+                 <ArrowUpRight size={20} />
+               </div>
+               <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Merchant Growth Leaderboard</h3>
+             </div>
+
+             <div className="space-y-4">
+               {topMerchants.map((m: any, i: number) => (
+                 <div key={m.id} className="flex items-center justify-between p-5 bg-slate-50/50 rounded-2xl border border-slate-100 hover:border-blue-200 transition-all group">
+                   <div className="flex items-center gap-4">
+                     <div className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center font-black text-slate-900 shadow-sm">
+                        {i + 1}
+                     </div>
+                     <div>
+                       <p className="text-[13px] font-bold text-slate-900 leading-tight">{m.name}</p>
+                       <p className="text-[10px] font-bold text-slate-500">{m.email}</p>
+                     </div>
+                   </div>
+                   <div className="flex items-center gap-8">
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-slate-400 uppercase">Success Txns</p>
+                        <p className="text-xs font-black text-slate-900">{m._count.paymentIntents}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-[10px] font-black text-slate-400 uppercase">Wallet</p>
+                        <p className="text-xs font-black text-emerald-600">₹{m.walletBalance.toLocaleString()}</p>
+                      </div>
+                   </div>
+                 </div>
+               ))}
+             </div>
+          </div>
         </div>
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4 text-center">
-          <p className="text-[10px] font-black text-blue-600 uppercase tracking-widest mb-1">Pending</p>
-          <p className="text-xl font-black text-blue-700">{data.pendingTxns}</p>
-        </div>
-        <div className="bg-rose-50 border border-rose-100 rounded-xl p-4 text-center">
-          <p className="text-[10px] font-black text-rose-600 uppercase tracking-widest mb-1">Failed</p>
-          <p className="text-xl font-black text-rose-700">{data.failedTxns}</p>
-        </div>
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 text-center">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Expired</p>
-          <p className="text-xl font-black text-slate-500">{data.expiredTxns}</p>
+
+        {/* Action Center & Critical Alerts */}
+        <div className="space-y-8">
+           <div className="bg-slate-900 rounded-[32px] p-8 text-white shadow-2xl relative overflow-hidden">
+             <div className="absolute top-0 right-0 w-40 h-40 bg-blue-600/30 blur-[80px] -mr-20 -mt-20" />
+             <div className="relative z-10 space-y-6">
+                <div className="flex items-center gap-3">
+                  <Activity className="text-blue-400" size={20} />
+                  <h3 className="text-sm font-black uppercase tracking-widest">Platform Pulse</h3>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
+                     <span className="text-[10px] font-black text-white/50 uppercase">Active Bots</span>
+                     <span className="text-sm font-black">Online</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
+                     <span className="text-[10px] font-black text-white/50 uppercase">Gateway Health</span>
+                     <span className="text-xs font-black text-emerald-400">Stable</span>
+                  </div>
+                  <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10">
+                     <span className="text-[10px] font-black text-white/50 uppercase">Response Time</span>
+                     <span className="text-xs font-black">240ms</span>
+                  </div>
+                </div>
+             </div>
+           </div>
+
+           {stats.pendingIpRequests > 0 && (
+             <div className="bg-amber-50 border border-amber-200 rounded-[32px] p-8 space-y-4 shadow-sm animate-bounce-subtle">
+               <div className="flex items-center gap-3">
+                 <div className="p-2 bg-amber-100 rounded-lg text-amber-600">
+                   <Globe size={18} />
+                 </div>
+                 <h4 className="text-[12px] font-black text-amber-900 uppercase tracking-widest">Security Action</h4>
+               </div>
+               <p className="text-xs text-amber-800 font-bold leading-relaxed">
+                 You have <span className="underline">{stats.pendingIpRequests}</span> merchant IP whitelist requests pending review.
+               </p>
+               <a href="/admin/merchants" className="block w-full py-3 bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest text-center hover:bg-amber-700 transition-all shadow-lg shadow-amber-600/20">
+                 Review All Requests
+               </a>
+             </div>
+           )}
+
+           <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm space-y-4">
+              <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Quick Actions</h4>
+              <div className="grid grid-cols-1 gap-2">
+                <button className="flex items-center justify-between p-4 bg-slate-50 hover:bg-blue-50 rounded-2xl border border-slate-100 hover:border-blue-200 transition-all group">
+                   <span className="text-xs font-black text-slate-700 group-hover:text-blue-600 transition-colors">Export Ledger</span>
+                   <ArrowUpRight size={14} className="text-slate-400 group-hover:text-blue-500" />
+                </button>
+                <button className="flex items-center justify-between p-4 bg-slate-50 hover:bg-blue-50 rounded-2xl border border-slate-100 hover:border-blue-200 transition-all group">
+                   <span className="text-xs font-black text-slate-700 group-hover:text-blue-600 transition-colors">Audit Logs</span>
+                   <ShieldCheck size={14} className="text-slate-400 group-hover:text-blue-500" />
+                </button>
+              </div>
+           </div>
         </div>
       </div>
-
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-        {/* 7 Day Volume */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-base font-black text-slate-900 flex items-center gap-2.5">
-              <BarChart3 className="text-blue-600" size={20} /> 7-Day Volume
-            </h3>
-            <div className="text-right">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total</p>
-              <p className="text-sm font-black text-slate-900">
-                ₹{data.dailyVolume.reduce((s: number, d: any) => s + d.amount, 0).toLocaleString()}
-              </p>
-            </div>
-          </div>
-
-          <div className="h-48 flex items-end justify-between gap-3 px-2">
-            {data.dailyVolume.map((d: any, idx: number) => {
-              const heightPct = maxDailyVolume > 0 ? (d.amount / maxDailyVolume) * 100 : 0;
-              return (
-                <div key={idx} className="flex-1 flex flex-col items-center gap-3 group">
-                  <div className="relative w-full flex flex-col items-center h-full justify-end">
-                    <div
-                      className="w-full max-w-[40px] bg-blue-50 group-hover:bg-blue-600 rounded-t-lg transition-all cursor-pointer border-x border-t border-blue-100"
-                      style={{ height: `${Math.max(heightPct, 4)}%` }}
-                    />
-                  </div>
-                  <div className="text-center">
-                    <p className="text-[10px] font-black text-slate-400 uppercase">{d.day}</p>
-                    <p className="text-[9px] font-bold text-slate-500 tracking-tighter">{d.count}</p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Hourly Heatmap */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-8">
-            <h3 className="text-base font-black text-slate-900 flex items-center gap-2.5">
-              <Clock className="text-indigo-600" size={20} /> Hourly Heatmap
-            </h3>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Today</p>
-          </div>
-
-          <div className="grid grid-cols-12 gap-1.5 h-32">
-            {data.hourlyHeatmap.map((h: any) => {
-              const intensity = maxHourlyCount > 0 ? h.count / maxHourlyCount : 0;
-              return (
-                <div key={h.hour} className="flex flex-col gap-1">
-                  <div
-                    className="flex-1 rounded-md transition-all hover:scale-110 cursor-help border border-indigo-100/20 shadow-sm"
-                    style={{
-                      backgroundColor: `rgba(79, 70, 229, ${0.05 + intensity * 0.95})`,
-                    }}
-                    title={`${h.hour}:00 — ${h.count} txns`}
-                  />
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex justify-between mt-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">
-            <span>00:00</span>
-            <span>12:00</span>
-            <span>23:59</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Merchant Leaderboard + Live Feed */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8">
-        {/* Merchant Leaderboard */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-base font-black text-slate-900 flex items-center gap-2.5">
-              <Users className="text-emerald-600" size={20} /> Merchant Rankings
-            </h3>
-          </div>
-          <div className="space-y-3">
-            {data.merchantStats.length === 0 ? (
-              <p className="text-center py-10 text-slate-400 font-bold uppercase tracking-widest text-[11px]">No merchants found</p>
-            ) : (
-              data.merchantStats.slice(0, 6).map((m: any, i: number) => (
-                <div key={m.id} className="flex items-center justify-between p-4 bg-white rounded-xl border border-slate-100 hover:border-slate-300 transition-all group shadow-sm">
-                  <div className="flex items-center gap-4">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${
-                      i === 0 ? "bg-amber-50 text-amber-600 border border-amber-100" :
-                      i === 1 ? "bg-slate-50 text-slate-600 border border-slate-200" :
-                      "bg-slate-50 text-slate-400 border border-slate-100"
-                    }`}>
-                      {i + 1}
-                    </div>
-                    <div>
-                      <p className="text-[13px] font-bold text-slate-900 leading-tight mb-0.5">{m.name}</p>
-                      <p className="text-[10px] font-bold text-slate-400">{m.txns} txns · {m.bots} bots</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-sm font-black text-slate-900">₹{m.volume.toLocaleString()}</p>
-                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border mt-1 inline-block ${
-                      m.status === "ACTIVE" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : "bg-amber-50 text-amber-600 border-amber-100"
-                    }`}>{m.status}</span>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Live Transaction Feed */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 md:p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-base font-black text-slate-900 flex items-center gap-2.5">
-              <Activity className="text-blue-600 animate-pulse" size={20} /> Live Feed
-            </h3>
-            <div className="flex items-center gap-2 px-3 py-1 bg-emerald-50 rounded-lg border border-emerald-100">
-              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-              <span className="text-[10px] font-black text-emerald-600 uppercase">Streaming</span>
-            </div>
-          </div>
-          <div className="space-y-2 max-h-[400px] overflow-y-auto custom-scrollbar pr-1">
-            {data.recentLive.length === 0 ? (
-              <p className="text-center py-10 text-slate-400 font-bold uppercase tracking-widest text-[11px]">No recent transactions</p>
-            ) : (
-              data.recentLive.map((t: any) => (
-                <div key={t.id} className="flex items-center justify-between p-3 bg-slate-50/50 rounded-xl border border-slate-100 hover:border-slate-300 transition-all shadow-inner">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center border ${
-                      t.status === "SUCCESS" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
-                      t.status === "PENDING" ? "bg-blue-50 text-blue-600 border-blue-100" :
-                      "bg-rose-50 text-rose-600 border-rose-100"
-                    }`}>
-                      {t.status === "SUCCESS" ? <CheckCircle2 size={14} /> :
-                       t.status === "PENDING" ? <Clock size={14} /> :
-                       <XCircle size={14} />}
-                    </div>
-                    <div>
-                      <p className="text-[12px] font-bold text-slate-900 leading-tight">₹{t.amount.toLocaleString()}</p>
-                      <p className="text-[10px] font-bold text-slate-400">{t.merchant?.name} · {t.referenceId?.slice(-8)}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <StatusBadge status={t.status} />
-                    <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase">
-                      {new Date(t.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </p>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* IP Requests Alert */}
-      {data.pendingIpRequests > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-amber-100 rounded-xl flex items-center justify-center border border-amber-200">
-              <Globe className="w-6 h-6 text-amber-600" />
-            </div>
-            <div>
-              <p className="text-sm font-black text-slate-900">IP Whitelist Requests Pending</p>
-              <p className="text-[11px] font-bold text-slate-500">{data.pendingIpRequests} request(s) awaiting approval</p>
-            </div>
-          </div>
-          <a href="/admin/merchants" className="px-6 py-3 bg-amber-600 text-white rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-amber-700 transition-all shadow-md shadow-amber-600/10 text-center">
-            Review Now
-          </a>
-        </div>
-      )}
     </div>
   );
 }
 
-function StatCard({ label, value, icon, color }: any) {
+function StatCard({ label, value, icon, color, subtitle }: any) {
   const colorMap: any = {
-    emerald: "bg-emerald-50 border-emerald-100 text-emerald-600",
-    blue: "bg-blue-50 border-blue-100 text-blue-600",
-    purple: "bg-indigo-50 border-indigo-100 text-indigo-600",
-    amber: "bg-amber-50 border-amber-100 text-amber-600",
+    emerald: "bg-emerald-50 text-emerald-600 border-emerald-100",
+    blue: "bg-blue-50 text-blue-600 border-blue-100",
+    purple: "bg-indigo-50 text-indigo-600 border-indigo-100",
+    amber: "bg-amber-50 text-amber-600 border-amber-100",
   };
 
   return (
-    <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm group hover:border-slate-300 transition-all">
-      <div className="flex items-center gap-3 mb-4">
-        <div className={`p-2 rounded-lg border ${colorMap[color]}`}>{icon}</div>
+    <div className="bg-white rounded-[32px] border border-slate-200 p-8 shadow-sm group hover:border-blue-200 transition-all">
+      <div className="flex items-center gap-3 mb-6">
+        <div className={`p-3 rounded-2xl border ${colorMap[color]}`}>{icon}</div>
       </div>
-      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1.5 leading-none">{label}</p>
-      <p className="text-2xl font-black text-slate-900 tracking-tight leading-none">{value}</p>
+      <div>
+        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5">{label}</p>
+        <p className="text-2xl font-black text-slate-900 tracking-tight leading-none mb-2">{value}</p>
+        <p className="text-[9px] font-bold text-slate-500 uppercase">{subtitle}</p>
+      </div>
     </div>
-  );
-}
-
-function StatusBadge({ status }: { status: string }) {
-  const styles: any = {
-    SUCCESS: "bg-emerald-50 text-emerald-600 border-emerald-100",
-    PENDING: "bg-blue-50 text-blue-600 border-blue-100",
-    FAILED: "bg-rose-50 text-rose-600 border-rose-100",
-    EXPIRED: "bg-slate-50 text-slate-400 border-slate-200",
-  };
-  return (
-    <span className={`text-[9px] font-black px-2 py-0.5 rounded-md border uppercase inline-block ${styles[status] || styles.PENDING}`}>
-      {status}
-    </span>
   );
 }

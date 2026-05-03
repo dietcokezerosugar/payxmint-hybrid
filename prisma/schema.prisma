@@ -35,9 +35,7 @@ model Merchant {
   webhookUrl       String?          
   redirectUrl      String?          
   
-  // Telegram Alerts
-  telegramBotToken String?
-  telegramChatId   String?
+  disableWallet    Boolean          @default(false) // If true, merchant can process payments without balance
   
   // Relations
   users            User[]
@@ -45,6 +43,8 @@ model Merchant {
   paymentIntents   PaymentIntent[]
   gpayAccounts     GooglePayAccount[]
   ledgerEntries    WalletLedger[]
+  ipWhitelistRequests IpWhitelistRequest[]
+  webhookLogs      WebhookLog[]
   agent            Agent?           @relation(fields: [agentId], references: [id])
   agentId          String?
   
@@ -58,9 +58,23 @@ model Agent {
   id             String     @id @default(cuid())
   name           String
   email          String     @unique
-  commissionRate Float      @default(0)
+  referralCode   String     @unique
+  commissionRate Float      @default(0) // % of merchant fee (not transaction amount)
+  walletBalance  Float      @default(0)
   merchants      Merchant[]
+  commissionLogs AgentCommissionLog[]
   createdAt      DateTime   @default(now())
+}
+
+model AgentCommissionLog {
+  id              String   @id @default(cuid())
+  agentId         String
+  agent           Agent    @relation(fields: [agentId], references: [id])
+  merchantId      String
+  amount          Float
+  description     String?
+  paymentIntentId String?
+  createdAt       DateTime @default(now())
 }
 
 model WalletLedger {
@@ -113,6 +127,7 @@ model PaymentIntent {
   isManualApproval Boolean     @default(false)
   approvalIp       String?     
   
+  isRecharge       Boolean     @default(false)
   createdAt        DateTime    @default(now())
   expireAt         DateTime?
   updatedAt        DateTime    @updatedAt
@@ -153,6 +168,8 @@ model GooglePayAccount {
   status         String    @default("ACTIVE")
   lastSync       DateTime?
   
+  isAdmin        Boolean   @default(false) 
+  
   // Advanced SaaS Limits
   minTicket      Float     @default(0)
   maxTicket      Float     @default(1000000)
@@ -184,3 +201,31 @@ model ApiLog {
   timestamp DateTime @default(now())
 }
 
+model IpWhitelistRequest {
+  id            String   @id @default(cuid())
+  merchantId    String
+  merchant      Merchant @relation(fields: [merchantId], references: [id])
+  ipAddress     String
+  webhookUrl    String?
+  acceptedTerms Boolean  @default(false)
+  status        String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  note          String?
+  reviewedAt    DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+
+model WebhookLog {
+  id          String   @id @default(cuid())
+  merchantId  String
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+  event       String
+  payload     String   // JSON string
+  url         String
+  status      Int?     // HTTP status code
+  response    String?  // Response body
+  isSuccess   Boolean  @default(false)
+  attempts    Int      @default(1)
+  createdAt   DateTime @default(now())
+}

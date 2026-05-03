@@ -37,9 +37,9 @@ export async function POST(req: NextRequest) {
       include: { merchant: true }
     });
 
-    // 2. If marking SUCCESS, ensure a Transaction record exists
+    // 2. If marking SUCCESS, ensure a Transaction record exists and link it
     if (status === "SUCCESS" && utr) {
-      await prisma.transaction.upsert({
+      const txn = await prisma.transaction.upsert({
         where: { externalId: `MANUAL-${id}` },
         update: { utr, amount: updatedIntent.amount, note: note || "Manual Admin Override" },
         create: { 
@@ -49,6 +49,39 @@ export async function POST(req: NextRequest) {
           note: note || "Manual Admin Override"
         }
       });
+
+      // Link back and debit fee
+      await prisma.paymentIntent.update({
+        where: { id },
+        data: { transactionId: txn.id }
+      });
+
+      // SaaS Billing: Deduct fee for manual success
+      const fee = (updatedIntent.amount * (updatedIntent.merchant.commissionRate || 0)) / 100;
+      if (fee > 0) {
+        const { WalletService } = require("@/services/wallet/WalletService");
+        await WalletService.debit(
+          updatedIntent.merchantId,
+          fee,
+          `Manual Success Fee (Ref: ${updatedIntent.referenceId})`,
+          "TRANSACTION",
+          updatedIntent.id
+        );
+      }
+
+      // Notify Merchant via Webhook
+      if (updatedIntent.merchant.webhookUrl) {
+        const { WebhookService } = require("@/services/notifications/WebhookService");
+        WebhookService.dispatch(updatedIntent.merchantId, updatedIntent.merchant.webhookUrl, {
+          event: "payment.success",
+          status: "SUCCESS",
+          amount: updatedIntent.amount,
+          txn_id: updatedIntent.id,
+          reference_id: updatedIntent.referenceId,
+          utr: utr,
+          timestamp: new Date().toISOString()
+        }).catch(err => console.error("[ManualWebhook] Failed:", err.message));
+      }
     }
 
     // 3. Log Audit Trail

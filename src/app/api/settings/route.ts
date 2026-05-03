@@ -10,7 +10,9 @@ export async function GET() {
       telegramChatId: true, 
       webhookWhitelist: true,
       apiAccessStatus: true,
-      ipWhitelist: true
+      ipWhitelist: true,
+      agent: true,
+      trialEndsAt: true
     },
   });
   return NextResponse.json({ status: "success", data: merchant });
@@ -21,7 +23,18 @@ export async function POST(req: NextRequest) {
   if (!merchant) return NextResponse.json({ status: "failure", message: "No merchant found" }, { status: 404 });
 
   const body = await req.json();
-  const { webhookUrl, redirectUrl, telegramBotToken, telegramChatId, webhookWhitelist, ipWhitelist } = body;
+  const { webhookUrl, redirectUrl, telegramBotToken, telegramChatId, webhookWhitelist, ipWhitelist, referralCode } = body;
+
+  // Handle Agent Referral Linking
+  let agentIdUpdate = {};
+  if (referralCode) {
+    const agent = await prisma.agent.findUnique({
+      where: { referralCode: referralCode.trim() }
+    });
+    if (agent) {
+      agentIdUpdate = { agentId: agent.id };
+    }
+  }
 
   const updated = await prisma.merchant.update({
     where: { id: merchant.id },
@@ -32,6 +45,7 @@ export async function POST(req: NextRequest) {
       ...(telegramChatId !== undefined && { telegramChatId }),
       ...(webhookWhitelist !== undefined && { webhookWhitelist }),
       ...(ipWhitelist !== undefined && { ipWhitelist }),
+      ...agentIdUpdate
     },
   });
 

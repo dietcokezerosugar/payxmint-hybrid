@@ -19,14 +19,16 @@ const DOWNLOAD_DIR = path.join(__dirname, `../../.downloads/${ACCOUNT_NAME}`);
 if (!fs.existsSync(SESSION_DIR)) fs.mkdirSync(SESSION_DIR, { recursive: true });
 if (!fs.existsSync(DOWNLOAD_DIR)) fs.mkdirSync(DOWNLOAD_DIR, { recursive: true });
 
-let accountConfig = { report_id: null, download_interval_sec: 30, email: '' };
+let accountConfig = { report_id: null, download_interval_sec: 10, email: '' };
 let engineContext = null;
 let enginePage = null;
 let engineRunning = false;
 let isInitialLoad = true;
 const knownTransactions = new Set();
+const MAX_KNOWN_TRANSACTIONS = 2000;
 
 const startTime = new Date();
+let lastBootTime = new Date();
 let totalSweeps = 0;
 let webhookStats = { success: 0, failure: 0 };
 
@@ -106,7 +108,12 @@ async function syncToHub(rows, engine) {
             account: ACCOUNT_NAME,
             timestamp: new Date().toISOString(),
             transactions: rows
-        }, { timeout: 15000 });
+        }, { 
+            timeout: 15000,
+            headers: {
+                'Authorization': `Bearer ${process.env.INTERNAL_BOT_SECRET}`
+            }
+        });
         log(`[${engine}] Synced ${rows.length} rows → Hub`);
         webhookStats.success++;
     } catch (e) {
@@ -115,11 +122,27 @@ async function syncToHub(rows, engine) {
     }
 }
 
+function trackTransactions(payload) {
+    for (const trx of payload) {
+        const id = trx.merchantTransactionId || trx.externalId;
+        if (id) knownTransactions.add(id);
+    }
+    // Memory Hardening: Sliding window for IDs
+    if (knownTransactions.size > MAX_KNOWN_TRANSACTIONS) {
+        const it = knownTransactions.values();
+        for (let i = 0; i < 500; i++) {
+            const val = it.next().value;
+            if (val) knownTransactions.delete(val);
+        }
+    }
+}
+
 async function processEngineA(payload) {
     if (!payload || payload.length === 0) return;
     const exportRows = payload.map(trx => normalizeFromXHR(trx));
     const newOnes = payload.filter(t => !knownTransactions.has(t.merchantTransactionId));
-    for (const trx of payload) { knownTransactions.add(trx.merchantTransactionId); }
+    
+    trackTransactions(payload);
 
     if (newOnes.length > 0) {
         await syncToHub(exportRows, 'ENGINE-A');
@@ -223,23 +246,52 @@ async function runEngineB() {
 
 async function runDualPollingLoop() {
     if (!engineRunning) return;
+
+    // Memory Hardening: Guard checks
+    const memUsage = process.memoryUsage().heapUsed / 1024 / 1024;
+    const uptimeHrs = (new Date() - lastBootTime) / 1000 / 60 / 60;
+
+    if (memUsage > 500 || uptimeHrs > 6) {
+        const reason = memUsage > 500 ? `Memory threshold exceeded (${Math.round(memUsage)}MB)` : 'Scheduled 6-hour refresh';
+        log(`[STABILITY] 🔄 ${reason}. Restarting browser context...`);
+        try { if (engineContext) await engineContext.close(); } catch(e) {}
+        engineContext = null; enginePage = null;
+        return setTimeout(async () => { await bootEngine(); }, 1000);
+    }
+
     try {
         log('[DUAL] 🔄 Sweep cycle starting...');
         totalSweeps++;
-        await enginePage.reload({ waitUntil: 'domcontentloaded', timeout: 30000 });
+        await enginePage.reload({ waitUntil: 'domcontentloaded', timeout: 10000 });
+        
+        // GPay 9 Resilience: Health Check (Smart Detection)
+        const currentUrl = enginePage.url();
+        const pageContent = await enginePage.content();
+        
+        // If we are redirected to the landing/signup page, session is definitely dead
+        const isLoggedOut = currentUrl.includes('/g4b/signup') || 
+                           (pageContent.includes('Sign in') && currentUrl.includes('accounts.google.com'));
+
+        if (isLoggedOut) {
+            log('[CRITICAL] 🚨 Bot session expired! Redirected to Login page. Stopping polling.');
+            engineRunning = false;
+            return;
+        }
+
         log('[ENGINE-A] ⚡ XHR sweep complete');
         if (statsEngineB.captured === 0 || Math.random() < 0.2) await runEngineB();
-        setTimeout(runDualPollingLoop, (accountConfig.download_interval_sec || 30) * 1000);
+        setTimeout(runDualPollingLoop, (accountConfig.download_interval_sec || 10) * 1000);
     } catch(e) {
         log(`[CRASH] Playwright stalled: ${e.message}. Recovering...`);
         engineRunning = false;
-        try { await engineContext.close(); } catch(x){}
+        try { if (engineContext) await engineContext.close(); } catch(x){}
         engineContext = null; enginePage = null;
         setTimeout(async () => { engineRunning = true; await bootEngine(); }, 5000);
     }
 }
 
 async function bootEngine() {
+    lastBootTime = new Date();
     await fetchConfig();
     let merchantUrl = 'https://pay.google.com/g4b/signup';
     if (accountConfig.report_id) {

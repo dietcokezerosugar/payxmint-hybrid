@@ -32,9 +32,11 @@ export default function AdminLayout({
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto custom-scrollbar">
           <AdminNavLink href="/admin" icon={<LayoutDashboard size={16} />} label="Overview" />
           <AdminNavLink href="/admin/merchants" icon={<Users size={16} />} label="Merchants & IPs" />
+          <AdminNavLink href="/admin/ip-whitelist" icon={<ShieldCheck size={16} />} label="IP Whitelist" />
           <AdminNavLink href="/admin/gateways" icon={<Smartphone size={16} />} label="Global Fleet" />
+          <AdminNavLink href="/admin/staff" icon={<ShieldCheck size={16} />} label="Staff Hub" />
           <AdminNavLink href="/admin/transactions" icon={<CreditCard size={16} />} label="Transactions" />
-          <AdminNavLink href="/admin/agents" icon={<Users size={16} />} label="Agents & Staff" />
+          <AdminNavLink href="/admin/referrals" icon={<Users size={16} />} label="Referral Hub" />
           <AdminNavLink href="/admin/analytics" icon={<BarChart3 size={16} />} label="System Health" />
           <AdminNavLink href="/admin/settings" icon={<Settings size={16} />} label="Settings" />
         </nav>

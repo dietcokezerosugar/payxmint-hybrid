@@ -4,11 +4,12 @@ export class GatewayRouter {
   /**
    * Selects an active GPay account that fits the transaction amount and limits.
    */
-  static async selectAccount(merchantId: string, amount: number) {
-    // 1. Fetch all active accounts for this merchant
+  static async selectAccount(merchantId: string, amount: number, forRecharge: boolean = false) {
+    // 1. Fetch active accounts
     const accounts = await prisma.googlePayAccount.findMany({
       where: {
-        merchantId,
+        isAdmin: forRecharge,
+        merchantId: forRecharge ? undefined : merchantId, // For admin, merchantId doesn't matter
         status: "ACTIVE",
         minTicket: { lte: amount },
         maxTicket: { gte: amount },

@@ -61,7 +61,10 @@ export async function POST(req: NextRequest) {
 
       await prisma.merchant.update({
         where: { id: request.merchantId },
-        data: { ipWhitelist: currentIps.join(",") },
+        data: { 
+          ipWhitelist: currentIps.join(","),
+          webhookUrl: request.webhookUrl || request.merchant.webhookUrl // Only update if a new one is proposed
+        },
       });
 
       // Audit log

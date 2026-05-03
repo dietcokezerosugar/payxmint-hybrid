@@ -18,7 +18,9 @@ import {
   BarChart3,
   Plus,
   Search,
-  Book
+  Book,
+  ShieldCheck,
+  Wallet
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -38,12 +40,15 @@ export default function DashboardLayout({
     { label: "Home", icon: LayoutDashboard, href: "/dashboard", shortcut: "H" },
     { label: "Accounts", icon: Key, href: "/dashboard/merchant-accounts", shortcut: "C" },
     { label: "Activity", icon: History, href: "/dashboard/transactions", shortcut: "T" },
+    { label: "Wallet", icon: Wallet, href: "/dashboard/recharge", shortcut: "W" },
     { label: "Links", icon: LinkIcon, href: "/dashboard/payment-links", shortcut: "P" },
   ];
 
   const secondaryNavItems = [
+    { label: "Quick Setup", icon: Zap, href: "/dashboard/quick-setup", shortcut: "Q" },
     { label: "API Keys", icon: Key, href: "/dashboard/api-keys", shortcut: "K" },
     { label: "API Logs", icon: Terminal, href: "/dashboard/logs", shortcut: "L" },
+    { label: "IP Whitelist", icon: ShieldCheck, href: "/dashboard/ip-whitelist", shortcut: "I" },
     { label: "Webhooks", icon: Webhook, href: "/dashboard/webhooks", shortcut: "W" },
     { label: "Docs", icon: Book, href: "/dashboard/docs", shortcut: "D" },
     { label: "Settings", icon: Settings, href: "/dashboard/settings", shortcut: "S" },
@@ -239,11 +244,24 @@ export default function DashboardLayout({
         )}
       </AnimatePresence>
 
-      {/* Sleek Minimalist Sidebar - Desktop Only */}
-      <aside className="hidden md:flex flex-col fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-100 z-50">
-        <div className="h-14 px-6 flex items-center gap-2.5 border-b border-slate-50">
-          <Zap className="text-primary w-4 h-4 fill-current" />
-          <span className="text-sm font-black tracking-tight text-slate-900">Wave Collect</span>
+      {/* Mobile Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="md:hidden fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm animate-in fade-in duration-300"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+
+      {/* Sleek Minimalist Sidebar - Desktop & Mobile */}
+      <aside className={`flex flex-col fixed inset-y-0 left-0 w-64 bg-white border-r border-slate-100 z-[70] transition-transform duration-300 md:translate-x-0 ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className="h-14 px-6 flex items-center justify-between border-b border-slate-50">
+          <div className="flex items-center gap-2.5">
+            <Zap className="text-blue-600 w-4 h-4 fill-current" />
+            <span className="text-sm font-black tracking-tight text-slate-900">Wave Collect</span>
+          </div>
+          <button onClick={() => setIsMobileMenuOpen(false)} className="md:hidden p-1 text-slate-400 hover:text-slate-900">
+            <X className="w-4 h-4" />
+          </button>
         </div>
         
         <nav className="flex-grow p-4 space-y-6 overflow-y-auto custom-scrollbar">
@@ -251,6 +269,7 @@ export default function DashboardLayout({
           <div className="space-y-1">
             <Link
               href="/dashboard/analytics"
+              onClick={() => setIsMobileMenuOpen(false)}
               className={`flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold rounded-lg transition-all ${
                 pathname === "/dashboard/analytics" 
                   ? "bg-slate-900 text-white shadow-md shadow-slate-900/10" 
@@ -271,6 +290,7 @@ export default function DashboardLayout({
                    <Link
                      key={item.label}
                      href={item.href}
+                     onClick={() => setIsMobileMenuOpen(false)}
                      className={`flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold rounded-lg transition-all ${
                        pathname === item.href 
                          ? "bg-blue-600 text-white shadow-md shadow-blue-600/10" 
@@ -291,6 +311,7 @@ export default function DashboardLayout({
                    <Link
                      key={item.label}
                      href={item.href}
+                     onClick={() => setIsMobileMenuOpen(false)}
                      className={`flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold rounded-lg transition-all ${
                        pathname === item.href 
                          ? "bg-slate-900 text-white shadow-md shadow-slate-900/10" 
@@ -350,87 +371,29 @@ export default function DashboardLayout({
            </div>
         </header>
 
-        {/* Mobile Header (Untouched) */}
-        <header className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white/80 backdrop-blur-md border-b border-gray-200 z-40 px-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Zap className="text-primary w-5 h-5 fill-current" />
-            <span className="text-base font-bold tracking-tight">Wave Collect</span>
+        {/* Mobile Header */}
+        <header className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white/80 backdrop-blur-md border-b border-slate-100 z-40 px-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => setIsMobileMenuOpen(true)} className="p-1 -ml-1 text-slate-500 hover:text-slate-900 transition-colors">
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2">
+              <Zap className="text-blue-600 w-4 h-4 fill-current" />
+              <span className="text-sm font-black tracking-tight text-slate-900">Wave Collect</span>
+            </div>
           </div>
           <div className="flex items-center gap-2">
              <div className="w-8 h-8 bg-blue-50 rounded-full flex items-center justify-center text-primary font-bold text-xs border border-blue-100">WC</div>
           </div>
         </header>
 
-        {/* Mobile Bottom Navigation (Untouched) */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-white/90 backdrop-blur-lg border-t border-gray-200 z-50 px-2 pb-safe-area-inset-bottom">
-          <div className="flex items-center justify-around h-16">
-            {mainNavItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  className={`flex flex-col items-center justify-center gap-1 min-w-[64px] transition-colors ${
-                    isActive ? "text-primary" : "text-muted-foreground"
-                  }`}
-                >
-                  <item.icon className={`w-5 h-5 ${isActive ? "fill-current/10" : ""}`} />
-                  <span className="text-[10px] font-bold uppercase tracking-tight">{item.label}</span>
-                </Link>
-              );
-            })}
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="flex flex-col items-center justify-center gap-1 min-w-[64px] text-muted-foreground"
-            >
-              <MoreHorizontal className="w-5 h-5" />
-              <span className="text-[10px] font-bold uppercase tracking-tight">More</span>
-            </button>
-          </div>
-        </nav>
-
         {/* Main Content Area */}
-        <main className="flex-grow pt-14 md:pt-0 pb-20 md:pb-12">
+        <main className="flex-grow pt-14 md:pt-0 pb-6 md:pb-12">
           <div className="p-4 md:p-8 max-w-7xl mx-auto">
             {children}
           </div>
         </main>
       </div>
-
-      {/* Mobile Drawer (Untouched) */}
-      {isMobileMenuOpen && (
-        <>
-          <div 
-            className="md:hidden fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm animate-in fade-in duration-300"
-            onClick={() => setIsMobileMenuOpen(false)}
-          />
-          <aside className="md:hidden fixed inset-x-0 bottom-0 z-[70] bg-white rounded-t-2xl p-6 pb-12 animate-in slide-in-from-bottom duration-400 shadow-2xl border-t border-slate-100">
-            <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-8" onClick={() => setIsMobileMenuOpen(false)} />
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-xl font-black text-slate-900 tracking-tight">More Options</h2>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-slate-50 rounded-full border border-slate-100">
-                <X className="w-5 h-5 text-slate-400" />
-              </button>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4">
-              {secondaryNavItems.map((item) => (
-                <Link
-                  key={item.label}
-                  href={item.href}
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex flex-col items-center gap-3 p-4 bg-white rounded-xl border border-slate-100 active:scale-95 transition-all shadow-sm"
-                >
-                  <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100">
-                    <item.icon className="w-5 h-5 text-blue-600" />
-                  </div>
-                  <span className="text-xs font-bold text-slate-700">{item.label}</span>
-                </Link>
-              ))}
-            </div>
-          </aside>
-        </>
-      )}
     </div>
   );
 }

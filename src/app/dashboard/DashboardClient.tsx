@@ -45,8 +45,50 @@ export default function DashboardClient({ initialMerchant, initialLedgerEntries 
   const successfulTxns = recentIntents.filter(i => i.status === 'SUCCESS').length;
   const totalVolume = recentIntents.filter(i => i.status === 'SUCCESS').reduce((acc, curr) => acc + curr.amount, 0);
 
+  const trialEndsAt = merchant.trialEndsAt ? new Date(merchant.trialEndsAt) : null;
+  const isTrialActive = trialEndsAt && trialEndsAt > new Date();
+  const trialDaysRemaining = trialEndsAt ? Math.ceil((trialEndsAt.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : 0;
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+      
+      {/* Trial Status Banner */}
+      {isTrialActive ? (
+        <div className="bg-emerald-50 border border-emerald-100 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+           <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-emerald-500/20">
+                 <Zap size={20} />
+              </div>
+              <div>
+                 <p className="text-sm font-black text-emerald-900 leading-tight">Free Trial Active</p>
+                 <p className="text-[11px] font-bold text-emerald-600 uppercase tracking-widest mt-0.5">
+                    Settlement fees waived for the next {trialDaysRemaining} days
+                 </p>
+              </div>
+           </div>
+           <Link href="/dashboard/docs" className="text-[10px] font-black text-emerald-700 uppercase tracking-widest bg-white/50 px-4 py-2 rounded-lg hover:bg-white transition-all">
+              Learn Integration
+           </Link>
+        </div>
+      ) : trialEndsAt && trialEndsAt < new Date() && (
+        <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-sm">
+           <div className="flex items-center gap-4">
+              <div className="w-10 h-10 bg-amber-500 rounded-xl flex items-center justify-center text-white shadow-lg shadow-amber-500/20">
+                 <ShieldAlert size={20} />
+              </div>
+              <div>
+                 <p className="text-sm font-black text-amber-900 leading-tight">Trial Period Expired</p>
+                 <p className="text-[11px] font-bold text-amber-600 uppercase tracking-widest mt-0.5">
+                    Please recharge your wallet to continue using the settlement engine
+                 </p>
+              </div>
+           </div>
+           <Link href="/dashboard/recharge" className="text-[10px] font-black text-amber-700 uppercase tracking-widest bg-white/50 px-4 py-2 rounded-lg hover:bg-white transition-all">
+              Recharge Now
+           </Link>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
@@ -116,7 +158,8 @@ export default function DashboardClient({ initialMerchant, initialLedgerEntries 
             </Link>
           </div>
           
-          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100 shadow-sm min-h-[400px]">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-x-auto divide-y divide-slate-100 shadow-sm min-h-[400px]">
+             <div className="min-w-[600px]">
             {recentIntents.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-20 text-center space-y-4">
                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 border border-slate-100">
@@ -164,6 +207,7 @@ export default function DashboardClient({ initialMerchant, initialLedgerEntries 
                 </div>
               ))
             )}
+            </div>
           </div>
         </div>
 

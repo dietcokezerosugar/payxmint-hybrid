@@ -15,18 +15,20 @@ import {
   Activity,
   Lock,
   ArrowUpRight,
-  Server
+  Server,
+  Gift
 } from "lucide-react";
 import { motion } from "framer-motion";
 
 export default function SettingsPage() {
   const [redirectUrl, setRedirectUrl] = useState("");
   const [webhookUrl, setWebhookUrl] = useState("");
-  const [webhookWhitelist, setWebhookWhitelist] = useState("");
   const [ipWhitelist, setIpWhitelist] = useState("");
   const [telegramBotToken, setTelegramBotToken] = useState("");
   const [telegramChatId, setTelegramChatId] = useState("");
   const [apiAccessStatus, setApiAccessStatus] = useState("NOT_REQUESTED");
+  const [referralCode, setReferralCode] = useState("");
+  const [agentInfo, setAgentInfo] = useState<any>(null);
   const [saved, setSaved] = useState(false);
   const [applying, setApplying] = useState(false);
 
@@ -37,14 +39,33 @@ export default function SettingsPage() {
         if (d.data) {
           setRedirectUrl(d.data.redirectUrl || "");
           setWebhookUrl(d.data.webhookUrl || "");
-          setWebhookWhitelist(d.data.webhookWhitelist || "");
           setIpWhitelist(d.data.ipWhitelist || "");
           setTelegramBotToken(d.data.telegramBotToken || "");
           setTelegramChatId(d.data.telegramChatId || "");
           setApiAccessStatus(d.data.apiAccessStatus || "NOT_REQUESTED");
+          setAgentInfo(d.data.agent || null);
         }
       });
   }, []);
+
+  async function linkReferral() {
+    setApplying(true);
+    try {
+      const res = await fetch("/api/settings/referral", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: referralCode }),
+      });
+      const data = await res.json();
+      if (data.status === "success") {
+        setAgentInfo(data.agent);
+      } else {
+        alert(data.error || "Invalid referral code");
+      }
+    } finally {
+      setApplying(false);
+    }
+  }
 
   async function saveConfig() {
     await fetch("/api/settings", {
@@ -53,8 +74,6 @@ export default function SettingsPage() {
       body: JSON.stringify({ 
         redirectUrl, 
         webhookUrl, 
-        webhookWhitelist,
-        ipWhitelist,
         telegramBotToken, 
         telegramChatId 
       }),
@@ -154,60 +173,88 @@ export default function SettingsPage() {
                       className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-[20px] text-sm font-bold text-slate-900 focus:bg-white focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all outline-none"
                    />
                 </div>
-                <div className="space-y-3">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Webhook Origin Whitelist</label>
-                   <input 
-                      value={webhookWhitelist}
-                      onChange={(e) => setWebhookWhitelist(e.target.value)}
-                      placeholder="1.2.3.4, 5.6.7.8 (Optional)"
-                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-[20px] text-sm font-bold text-slate-900 focus:bg-white focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all outline-none"
-                   />
-                </div>
-                <div className="space-y-3">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Infrastructure Whitelist (IPs)</label>
-                   <input 
-                      value={ipWhitelist}
-                      onChange={(e) => setIpWhitelist(e.target.value)}
-                      placeholder="Your server IPs (comma separated)"
-                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-[20px] text-sm font-bold text-slate-900 focus:bg-white focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all outline-none"
-                   />
+                {/* Managed Infrastructure */}
+                <div className="space-y-4 pt-4 border-t border-slate-50 col-span-2">
+                   <div className="flex items-center justify-between px-1">
+                      <div className="flex items-center gap-2">
+                         <ShieldCheck className="text-blue-600 w-4 h-4" />
+                         <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Managed Infrastructure</label>
+                      </div>
+                      <div className="flex items-center gap-2 px-2.5 py-1 bg-blue-50 border border-blue-100 rounded-lg">
+                         <div className="w-1 h-1 bg-blue-500 rounded-full animate-pulse" />
+                         <span className="text-[8px] font-black text-blue-600 uppercase tracking-widest">Verified System</span>
+                      </div>
+                   </div>
+                   
+                   <div className="p-6 bg-slate-50 border border-slate-100 rounded-[28px] flex items-center justify-between group hover:border-blue-200 transition-all shadow-inner">
+                      <div className="space-y-1">
+                         <p className="text-[11px] font-black text-slate-900 leading-none">
+                            {ipWhitelist || "Awaiting First Request"}
+                         </p>
+                         <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">
+                            Active Traffic Origination Node
+                         </p>
+                      </div>
+                      <div className="p-3 bg-white rounded-2xl border border-slate-200 text-slate-300 shadow-sm">
+                         <Lock size={18} />
+                      </div>
+                   </div>
+                   
+                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter px-1 leading-relaxed max-w-md">
+                      This whitelist is automatically updated upon approval of your <a href="/dashboard/ip-whitelist" className="text-blue-600 hover:underline font-black">Security Access Requests</a>. Manual editing is restricted for platform integrity.
+                   </p>
                 </div>
              </div>
           </section>
 
-          {/* Telegram Notifications */}
+          {/* Referral Program */}
           <section className="bg-white rounded-[32px] border border-slate-200 p-8 space-y-8 shadow-sm">
              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center border border-indigo-100">
-                   <Bell className="w-5 h-5" />
+                <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center border border-amber-100">
+                   <Gift className="w-5 h-5" />
                 </div>
-                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Real-time Telemetry</h3>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Referral Network</h3>
              </div>
 
-             <div className="grid md:grid-cols-2 gap-8">
-                <div className="space-y-3">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Bot Token</label>
-                   <input 
-                      type="password"
-                      value={telegramBotToken}
-                      onChange={(e) => setTelegramBotToken(e.target.value)}
-                      placeholder="123456789:ABC..."
-                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-[20px] text-sm font-bold text-slate-900 focus:bg-white focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all outline-none"
-                   />
-                </div>
-                <div className="space-y-3">
-                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Chat ID</label>
-                   <input 
-                      value={telegramChatId}
-                      onChange={(e) => setTelegramChatId(e.target.value)}
-                      placeholder="-100123456789"
-                      className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-[20px] text-sm font-bold text-slate-900 focus:bg-white focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all outline-none"
-                   />
-                </div>
+             <div className="space-y-4">
+                {agentInfo ? (
+                  <div className="p-6 bg-emerald-50 border border-emerald-100 rounded-[24px] flex items-center justify-between">
+                     <div className="flex items-center gap-4">
+                        <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center text-emerald-600 font-black border border-emerald-200">
+                           {agentInfo.name[0]}
+                        </div>
+                        <div>
+                           <p className="text-[10px] font-black text-emerald-600 uppercase tracking-widest">Linked Agent</p>
+                           <p className="text-sm font-black text-slate-900">{agentInfo.name}</p>
+                        </div>
+                     </div>
+                     <div className="px-3 py-1 bg-white rounded-lg border border-emerald-200 text-[10px] font-black text-emerald-600 uppercase tracking-widest">
+                        Partner Active
+                     </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                     <p className="text-[11px] text-slate-500 font-medium leading-relaxed max-w-md">
+                        Were you referred to WaveCollect? Enter your partner's referral code below to link your account to their network.
+                     </p>
+                     <div className="flex flex-col md:flex-row gap-3">
+                        <input 
+                           value={referralCode}
+                           onChange={(e) => setReferralCode(e.target.value.toUpperCase())}
+                           placeholder="Enter Referral Code (e.g. WAVE-123)"
+                           className="flex-1 px-5 py-4 bg-slate-50 border border-slate-100 rounded-[20px] text-sm font-black text-slate-900 focus:bg-white focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all outline-none placeholder:font-bold placeholder:text-slate-300"
+                        />
+                        <button 
+                           onClick={linkReferral}
+                           disabled={!referralCode || applying}
+                           className="px-8 py-4 bg-slate-900 text-white rounded-[20px] text-[11px] font-black uppercase tracking-widest hover:bg-slate-800 transition-all shadow-xl shadow-slate-900/10 active:scale-95 disabled:opacity-50"
+                        >
+                           {applying ? "Verifying..." : "Link Account"}
+                        </button>
+                     </div>
+                  </div>
+                )}
              </div>
-             <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight leading-relaxed">
-                Critical alerts for system health, payout settlement, and suspicious activities will be dispatched to this Telegram endpoint.
-             </p>
           </section>
         </div>
 

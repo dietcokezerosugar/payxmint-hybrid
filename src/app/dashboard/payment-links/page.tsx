@@ -177,7 +177,7 @@ export default function PaymentLinksPage() {
                 exit={{ opacity: 0, scale: 0.98 }}
                 className="bg-white rounded-2xl border border-slate-200 p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-5 shadow-sm hover:border-slate-300 transition-all"
               >
-                <div className="flex items-center gap-5">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-5">
                   <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 border border-blue-100 shrink-0 shadow-sm">
                     <LinkIcon className="w-6 h-6" />
                   </div>
