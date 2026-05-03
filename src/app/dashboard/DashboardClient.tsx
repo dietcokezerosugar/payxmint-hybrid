@@ -46,27 +46,27 @@ export default function DashboardClient({ initialMerchant, initialLedgerEntries 
   const totalVolume = recentIntents.filter(i => i.status === 'SUCCESS').reduce((acc, curr) => acc + curr.amount, 0);
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+    <div className="space-y-6 md:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-black text-white tracking-tight flex items-center gap-3">
-             <LayoutDashboard className="text-blue-500" /> Command Center
+          <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
+             <LayoutDashboard className="text-blue-600" /> Command Center
           </h1>
           <div className="flex items-center gap-2 mt-1">
-             <p className="text-slate-500 font-bold text-sm uppercase tracking-widest">Merchant: {merchant.name}</p>
+             <p className="text-slate-500 font-bold text-[11px] uppercase tracking-widest leading-none">Merchant: {merchant.name}</p>
              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-             <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Live Monitoring</span>
+             <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none">Live Monitoring</span>
           </div>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
            <button 
              onClick={() => setIsLive(!isLive)}
-             className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 ${isLive ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-800 text-slate-500 border-slate-700'}`}
+             className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all flex items-center gap-2 shadow-sm ${isLive ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-200'}`}
            >
               {isLive ? <RefreshCw className="animate-spin" size={12} /> : <Clock size={12} />}
               {isLive ? 'Real-time On' : 'Paused'}
            </button>
-           <Link href="/dashboard/recharge" className="px-6 py-3 bg-emerald-600 text-white rounded-2xl font-black text-xs shadow-lg shadow-emerald-600/20 active:scale-95 transition-all">
+           <Link href="/dashboard/recharge" className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-black text-[11px] uppercase tracking-widest shadow-md shadow-blue-600/20 active:scale-95 transition-all">
               + Recharge Wallet
            </Link>
         </div>
@@ -108,43 +108,43 @@ export default function DashboardClient({ initialMerchant, initialLedgerEntries 
         {/* Real-Time Activity Feed */}
         <div className="lg:col-span-2 space-y-4">
           <div className="flex items-center justify-between px-2">
-            <h3 className="text-sm font-black text-white uppercase tracking-widest flex items-center gap-2">
-               <History className="text-blue-500" size={16} /> Real-Time Activity
+            <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+               <History className="text-blue-600" size={14} /> Real-Time Activity
             </h3>
-            <Link href="/dashboard/transactions" className="text-[10px] font-black text-blue-500 uppercase tracking-widest hover:underline">
+            <Link href="/dashboard/transactions" className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:underline">
               Full Ledger View
             </Link>
           </div>
           
-          <div className="bg-slate-900/50 rounded-3xl border border-slate-800 overflow-hidden divide-y divide-slate-800/50 shadow-2xl min-h-[400px]">
+          <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100 shadow-sm min-h-[400px]">
             {recentIntents.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-20 text-center space-y-4">
-                <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-slate-600 animate-pulse">
+                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center text-slate-300 border border-slate-100">
                    <Clock size={32} />
                 </div>
-                <p className="text-slate-600 italic text-sm font-bold uppercase tracking-widest">
+                <p className="text-slate-400 italic text-[11px] font-bold uppercase tracking-widest">
                   Listening for incoming transactions...
                 </p>
               </div>
             ) : (
               recentIntents.map((intent) => (
-                <div key={intent.id} className="p-5 flex items-center justify-between gap-4 hover:bg-slate-800/30 transition-all group">
+                <div key={intent.id} className="p-5 flex items-center justify-between gap-4 hover:bg-slate-50/50 transition-all group">
                   <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${
-                      intent.status === "SUCCESS" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" : 
-                      intent.status === "DETECTED_UNMATCHED" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
-                      intent.status === "PENDING" ? "bg-blue-500/10 text-blue-500 border-blue-500/20" : "bg-slate-800/50 text-slate-500 border-slate-700"
+                    <div className={`w-10 h-10 rounded-lg flex items-center justify-center border shadow-sm ${
+                      intent.status === "SUCCESS" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : 
+                      intent.status === "DETECTED_UNMATCHED" ? "bg-amber-50 text-amber-600 border-amber-100" :
+                      intent.status === "PENDING" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-slate-50 text-slate-400 border-slate-200"
                     }`}>
                       {intent.status === "SUCCESS" ? <CheckCircle2 size={18} /> : intent.status === "DETECTED_UNMATCHED" ? <ShieldAlert size={18} /> : <Clock size={18} />}
                     </div>
                     <div>
-                      <p className="text-sm font-black text-white tracking-wider">{intent.referenceId}</p>
-                      <div className="flex items-center gap-2">
-                        <p className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter">
+                      <p className="text-[13px] font-bold text-slate-900 leading-tight">{intent.referenceId}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
                           {new Date(intent.createdAt).toLocaleTimeString()}
                         </p>
                         {(intent.transaction || intent.utr) && (
-                          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase tracking-widest ${intent.status === 'DETECTED_UNMATCHED' ? 'text-amber-500 bg-amber-500/5 border-amber-500/10' : 'text-emerald-500 bg-emerald-500/5 border-emerald-500/10'}`}>
+                          <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase tracking-widest ${intent.status === 'DETECTED_UNMATCHED' ? 'text-amber-600 bg-amber-50 border-amber-100' : 'text-emerald-600 bg-emerald-50 border-emerald-100'}`}>
                              UTR: {intent.transaction?.utr || intent.utr || 'DETECTED'}
                           </span>
                         )}
@@ -152,11 +152,11 @@ export default function DashboardClient({ initialMerchant, initialLedgerEntries 
                     </div>
                   </div>
                   <div className="text-right">
-                    <p className="text-sm font-black text-white">₹{intent.amount.toLocaleString()}</p>
-                    <span className={`text-[8px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full border ${
-                       intent.status === "SUCCESS" ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" :
-                       intent.status === "DETECTED_UNMATCHED" ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
-                       intent.status === "PENDING" ? "bg-blue-500/10 text-blue-500 border-blue-500/20" : "bg-slate-800 text-slate-500 border-slate-700"
+                    <p className="text-sm font-black text-slate-900">₹{intent.amount.toLocaleString()}</p>
+                    <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border mt-1 inline-block ${
+                       intent.status === "SUCCESS" ? "bg-emerald-50 text-emerald-600 border-emerald-100" :
+                       intent.status === "DETECTED_UNMATCHED" ? "bg-amber-50 text-amber-600 border-amber-100" :
+                       intent.status === "PENDING" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-slate-50 text-slate-400 border-slate-200"
                     }`}>
                       {intent.status === "DETECTED_UNMATCHED" ? "ORPHAN DETECTED" : intent.status}
                     </span>
@@ -169,27 +169,26 @@ export default function DashboardClient({ initialMerchant, initialLedgerEntries 
 
         {/* Mini Ledger Widget (Static Sidebar) */}
         <div className="space-y-4">
-           <h3 className="text-sm font-black text-white uppercase tracking-widest px-2">Wallet Ledger</h3>
-           <div className="bg-slate-900 rounded-3xl border border-slate-800 p-6 shadow-2xl relative overflow-hidden">
-              <div className="absolute -top-10 -right-10 w-32 h-32 bg-blue-500/10 blur-[50px] rounded-full" />
-              <div className="space-y-4 relative z-10">
+           <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-widest px-2">Wallet Ledger</h3>
+           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+              <div className="space-y-4">
                  {ledgerEntries.map((entry: any) => (
-                    <div key={entry.id} className="flex items-center justify-between pb-4 border-b border-slate-800/50 last:border-0 last:pb-0">
+                    <div key={entry.id} className="flex items-center justify-between pb-4 border-b border-slate-100 last:border-0 last:pb-0">
                        <div className="flex items-center gap-3">
-                          <div className={`p-1.5 rounded-lg ${entry.type === 'CREDIT' ? 'bg-emerald-500/10 text-emerald-500' : 'bg-rose-500/10 text-rose-500'}`}>
+                          <div className={`p-1.5 rounded-lg border ${entry.type === 'CREDIT' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'}`}>
                              {entry.type === 'CREDIT' ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                           </div>
                           <div>
-                             <p className="text-[10px] font-black text-white">{entry.description}</p>
-                             <p className="text-[8px] font-bold text-slate-500 uppercase">{new Date(entry.createdAt).toLocaleDateString()}</p>
+                             <p className="text-[11px] font-bold text-slate-900 leading-tight">{entry.description}</p>
+                             <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mt-0.5">{new Date(entry.createdAt).toLocaleDateString()}</p>
                           </div>
                        </div>
-                       <p className={`text-xs font-black ${entry.type === 'CREDIT' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                       <p className={`text-xs font-black ${entry.type === 'CREDIT' ? 'text-emerald-600' : 'text-rose-600'}`}>
                           {entry.type === 'CREDIT' ? '+' : '-'}₹{entry.amount}
                        </p>
                     </div>
                  ))}
-                 {ledgerEntries.length === 0 && <p className="text-center text-[10px] font-black text-slate-600 uppercase py-8">No fees recorded</p>}
+                 {ledgerEntries.length === 0 && <p className="text-center text-[10px] font-black text-slate-400 uppercase py-8">No fees recorded</p>}
               </div>
            </div>
         </div>
@@ -200,23 +199,22 @@ export default function DashboardClient({ initialMerchant, initialLedgerEntries 
 
 function DashboardCard({ label, value, sub, icon, color }: any) {
   const colors: any = {
-    blue: "text-blue-500 bg-blue-500/10 border-blue-500/20 shadow-blue-500/5",
-    emerald: "text-emerald-500 bg-emerald-500/10 border-emerald-500/20 shadow-emerald-500/5",
-    amber: "text-amber-500 bg-amber-500/10 border-amber-500/20 shadow-amber-500/5",
-    purple: "text-purple-500 bg-purple-500/10 border-purple-500/20 shadow-purple-500/5",
+    blue: "text-blue-600 bg-blue-50 border-blue-100",
+    emerald: "text-emerald-600 bg-emerald-50 border-emerald-100",
+    amber: "text-amber-600 bg-amber-50 border-amber-100",
+    purple: "text-blue-600 bg-blue-50 border-blue-100",
   };
 
   return (
-    <div className={`bg-slate-900 rounded-[32px] border border-slate-800 p-8 shadow-xl hover:border-slate-700 transition-all group relative overflow-hidden`}>
-      <div className={`absolute -bottom-10 -right-10 w-32 h-32 opacity-10 blur-[50px] rounded-full bg-current ${colors[color].split(' ')[0]}`} />
+    <div className={`bg-white rounded-2xl border border-slate-200 p-6 shadow-sm hover:border-slate-300 transition-all group relative overflow-hidden`}>
       <div className="flex flex-col gap-4 relative z-10">
-        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center border ${colors[color]}`}>
-          {icon}
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center border shadow-sm ${colors[color]}`}>
+          {React.cloneElement(icon as React.ReactElement, { size: 20 })}
         </div>
         <div>
-          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">{label}</p>
-          <p className="text-3xl font-black text-white tracking-tighter">{value}</p>
-          <p className="text-[10px] font-bold text-slate-500 mt-1 uppercase">{sub}</p>
+          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1.5 leading-none">{label}</p>
+          <p className="text-3xl font-black text-slate-900 tracking-tighter leading-none">{value}</p>
+          <p className="text-[10px] font-bold text-slate-500 mt-2 uppercase tracking-tight leading-none">{sub}</p>
         </div>
       </div>
     </div>

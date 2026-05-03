@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
-    const { id, action, status } = await req.json();
+    const { id, action, status, minTicket, maxTicket } = await req.json();
 
     if (action === "TOGGLE_STATUS") {
       const updated = await prisma.googlePayAccount.update({
@@ -41,6 +41,27 @@ export async function POST(req: NextRequest) {
         where: { id },
         data: { currentDaily: 0, currentWeekly: 0, currentMonthly: 0 }
       });
+      return NextResponse.json({ status: "success", data: updated });
+    }
+
+    if (action === "UPDATE_TICKETS") {
+      const updateData: any = {};
+      if (minTicket !== undefined) updateData.minTicket = parseFloat(minTicket);
+      if (maxTicket !== undefined) updateData.maxTicket = parseFloat(maxTicket);
+      
+      const updated = await prisma.googlePayAccount.update({
+        where: { id },
+        data: updateData
+      });
+
+      await prisma.auditLog.create({
+        data: {
+          userId: "SYSTEM_ADMIN",
+          action: "ADMIN_UPDATE_TICKET_SIZE",
+          metadata: JSON.stringify({ accountId: id, minTicket, maxTicket }),
+        },
+      });
+
       return NextResponse.json({ status: "success", data: updated });
     }
 

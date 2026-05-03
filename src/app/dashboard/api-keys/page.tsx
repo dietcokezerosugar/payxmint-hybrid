@@ -1,7 +1,26 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Key, Copy, ShieldAlert, Plus, Check } from "lucide-react";
+import { 
+  Key, 
+  Copy, 
+  ShieldAlert, 
+  Plus, 
+  Check, 
+  Zap, 
+  ShieldCheck, 
+  BarChart3, 
+  Globe, 
+  Terminal, 
+  ChevronRight,
+  Activity,
+  Lock,
+  ArrowUpRight,
+  Shield,
+  RotateCcw,
+  AlertCircle
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 interface ApiKeyData {
   id: string;
@@ -48,90 +67,188 @@ export default function ApiKeysPage() {
     await fetchKeys();
   }
 
-  function copyKey(key: string, id: string) {
-    navigator.clipboard.writeText(key);
+  function copyToClipboard(text: string, id: string) {
+    navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
   }
 
+  const totalUsed = keys.reduce((acc, k) => acc + k.usedAmount, 0);
+  const totalLimit = keys.reduce((acc, k) => acc + k.monthlyLimit, 0);
+
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 px-2 md:px-0">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">API Keys</h1>
-          <p className="text-muted-foreground text-sm md:text-base">Authenticate your payment requests.</p>
+    <div className="space-y-12 pb-32 max-w-6xl mx-auto px-4 md:px-6 animate-in fade-in duration-700">
+      
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 border-b border-slate-200 pb-12">
+        <div className="space-y-4">
+           <div className="flex items-center gap-2 text-blue-600 font-black text-[10px] uppercase tracking-[0.2em]">
+              <Shield className="w-4 h-4" /> Credentials Infrastructure
+           </div>
+           <h1 className="text-4xl font-black tracking-tight text-slate-900 leading-none">API Access Control</h1>
+           <p className="text-slate-500 text-sm font-medium max-w-xl leading-relaxed">
+             Provision high-entropy keys for secure machine-to-machine communication. Manage throttling limits and instant revocation from this control center.
+           </p>
         </div>
         <button
           onClick={generateKey}
           disabled={loading}
-          className="w-full md:w-auto px-6 py-4 md:py-3 bg-primary text-white rounded-2xl md:rounded-full text-sm font-bold flex items-center justify-center gap-2 hover:bg-blue-600 transition-all disabled:opacity-50 shadow-lg shadow-blue-600/20 active:scale-[0.98]"
+          className="px-8 py-4 bg-slate-900 text-white rounded-2xl text-[11px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-xl shadow-slate-900/20 active:scale-95 disabled:opacity-50 flex items-center gap-3"
         >
-          <Plus className="w-5 h-5 md:w-4 md:h-4" /> {loading ? "Generating..." : "New API Key"}
+          {loading ? <Activity className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+          Provision New Key
         </button>
       </div>
 
-      <div className="grid gap-3 md:gap-4 px-2 md:px-0">
-        {keys.map((key) => (
-          <div key={key.id} className="bg-white rounded-[32px] md:rounded-2xl border border-slate-200 p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-6 shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 md:w-14 md:h-14 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400 shrink-0 border border-slate-100">
-                <Key className="w-6 h-6 md:w-7 md:h-7" />
-              </div>
-              <div className="min-w-0 flex-grow">
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-sm font-black font-mono tracking-tight text-slate-900 truncate max-w-[140px] md:max-w-none">{key.key}</p>
-                  <button onClick={() => copyKey(key.key, key.id)} className="p-1 text-primary active:scale-90 transition-transform">
-                    {copiedId === key.id ? <Check className="w-4 h-4 text-emerald-500" /> : <Copy className="w-4 h-4" />}
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span
-                    className={`text-[8px] md:text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full ${
-                      key.isBlocked ? "bg-rose-100 text-rose-600" : "bg-emerald-100 text-emerald-600"
-                    }`}
-                  >
-                    {key.isBlocked ? "Blocked" : "Active"}
-                  </span>
-                  <span className="text-[10px] md:text-xs text-slate-400 font-medium">
-                    {new Date(key.createdAt).toLocaleDateString("en-IN", { day: '2-digit', month: 'short', year: 'numeric' })}
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col md:flex-row md:items-center gap-6 text-left md:text-right border-t md:border-0 pt-5 md:pt-0 border-slate-50">
-              <div className="flex-grow">
-                <div className="flex items-center justify-between md:justify-end gap-4 mb-2">
-                  <p className="text-[9px] text-slate-400 uppercase font-black tracking-widest">Monthly Limit Usage</p>
-                  <p className="text-[10px] md:text-xs font-black text-slate-900">
-                    ₹{key.usedAmount.toLocaleString()} / ₹{key.monthlyLimit.toLocaleString()}
-                  </p>
-                </div>
-                <div className="w-full md:w-48 h-2 bg-slate-100 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-primary transition-all duration-1000"
-                    style={{ width: `${Math.min((key.usedAmount / key.monthlyLimit) * 100, 100)}%` }}
-                  ></div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between md:justify-end gap-3">
-                <button
-                  onClick={() => toggleBlock(key.id, key.isBlocked)}
-                  className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 md:px-4 py-3 md:py-2 rounded-xl text-xs font-black transition-all border shadow-sm ${
-                    key.isBlocked
-                      ? "bg-emerald-50 border-emerald-100 text-emerald-600 hover:bg-emerald-100"
-                      : "bg-rose-50 border-rose-100 text-rose-500 hover:bg-rose-100"
-                  }`}
-                >
-                  <ShieldAlert className="w-4 h-4" />
-                  <span>{key.isBlocked ? "Unblock Key" : "Revoke Key"}</span>
-                </button>
-              </div>
-            </div>
+      {/* Stats Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {[
+          { label: "Active Nodes", value: keys.filter(k => !k.isBlocked).length, icon: Globe, color: "bg-blue-600" },
+          { label: "Current Volume", value: `₹${totalUsed.toLocaleString()}`, icon: Activity, color: "bg-slate-900" },
+          { label: "Aggregate Capacity", value: `₹${totalLimit.toLocaleString()}`, icon: ShieldCheck, color: "bg-emerald-600" },
+        ].map((stat, i) => (
+          <div key={i} className="bg-white rounded-[32px] p-8 border border-slate-200 shadow-sm flex items-center gap-6 group hover:border-blue-500 transition-all">
+             <div className={`w-14 h-14 ${stat.color} rounded-2xl flex items-center justify-center text-white shadow-lg`}>
+                <stat.icon className="w-6 h-6" />
+             </div>
+             <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                <p className="text-2xl font-black text-slate-900">{stat.value}</p>
+             </div>
           </div>
         ))}
       </div>
+
+      {/* Key Management List */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between px-2">
+           <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
+              <Lock className="w-3.5 h-3.5" /> Security Ledger
+           </h3>
+           <span className="text-[10px] font-bold text-slate-300">v1.2 Secure Protocol</span>
+        </div>
+
+        <div className="bg-white rounded-[40px] border border-slate-200 shadow-sm overflow-hidden">
+           <div className="overflow-x-auto">
+              <table className="w-full text-left">
+                 <thead>
+                    <tr className="bg-slate-50/50">
+                       <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Key Identification</th>
+                       <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Access Status</th>
+                       <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Capacity Used</th>
+                       <th className="px-10 py-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Security Ops</th>
+                    </tr>
+                 </thead>
+                 <tbody className="divide-y divide-slate-100">
+                    {keys.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="px-10 py-20 text-center space-y-4">
+                           <Key className="w-12 h-12 text-slate-200 mx-auto" />
+                           <p className="text-slate-400 font-bold uppercase text-xs tracking-widest">No active keys provisioned</p>
+                        </td>
+                      </tr>
+                    ) : keys.map((key) => (
+                      <tr key={key.id} className="group hover:bg-slate-50/50 transition-colors">
+                        <td className="px-10 py-8">
+                           <div className="flex items-center gap-4">
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center border ${key.isBlocked ? 'bg-slate-50 text-slate-300 border-slate-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
+                                 <Key className="w-4 h-4" />
+                              </div>
+                              <div>
+                                 <div className="flex items-center gap-3">
+                                    <code className="text-[13px] font-black text-slate-900 font-mono tracking-tight">{key.key}</code>
+                                    <button 
+                                      onClick={() => copyToClipboard(key.key, key.id)}
+                                      className="text-slate-300 hover:text-blue-600 transition-colors"
+                                    >
+                                       {copiedId === key.id ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
+                                    </button>
+                                 </div>
+                                 <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Issued {new Date(key.createdAt).toLocaleDateString()}</p>
+                              </div>
+                           </div>
+                        </td>
+                        <td className="px-10 py-8">
+                           <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${
+                             key.isBlocked ? "bg-rose-50 text-rose-600 border-rose-100" : "bg-emerald-50 text-emerald-600 border-emerald-100"
+                           }`}>
+                              <div className={`w-1 h-1 rounded-full ${key.isBlocked ? 'bg-rose-500' : 'bg-emerald-500 animate-pulse'}`} />
+                              {key.isBlocked ? "Revoked" : "Authorized"}
+                           </div>
+                        </td>
+                        <td className="px-10 py-8">
+                           <div className="space-y-2">
+                              <div className="flex justify-between text-[10px] font-black">
+                                 <span className="text-slate-900 uppercase">₹{key.usedAmount.toLocaleString()}</span>
+                                 <span className="text-slate-400">/ ₹{key.monthlyLimit.toLocaleString()}</span>
+                              </div>
+                              <div className="h-1.5 w-32 bg-slate-100 rounded-full overflow-hidden border border-slate-200/50">
+                                 <div 
+                                    className={`h-full transition-all duration-1000 ${key.isBlocked ? 'bg-slate-200' : 'bg-blue-600'}`}
+                                    style={{ width: `${Math.min((key.usedAmount / key.monthlyLimit) * 100, 100)}%` }}
+                                 />
+                              </div>
+                           </div>
+                        </td>
+                        <td className="px-10 py-8 text-right">
+                           <div className="flex items-center justify-end gap-3">
+                              <button 
+                                onClick={() => toggleBlock(key.id, key.isBlocked)}
+                                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                                   key.isBlocked 
+                                      ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 hover:bg-emerald-700" 
+                                      : "bg-white text-rose-500 border border-rose-100 hover:bg-rose-50 hover:border-rose-200 shadow-sm"
+                                }`}
+                              >
+                                 {key.isBlocked ? "Re-Authorize" : "Revoke"}
+                              </button>
+                           </div>
+                        </td>
+                      </tr>
+                    ))}
+                 </tbody>
+              </table>
+           </div>
+        </div>
+      </div>
+
+      {/* Security Advisory */}
+      <div className="bg-slate-900 rounded-[40px] p-12 text-white relative overflow-hidden">
+         <div className="absolute top-0 right-0 w-full h-full opacity-10 pointer-events-none">
+            <svg width="100%" height="100%" viewBox="0 0 100 100" preserveAspectRatio="none">
+               <defs>
+                  <pattern id="grid" width="10" height="10" patternUnits="userSpaceOnUse">
+                     <path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" strokeWidth="0.5"/>
+                  </pattern>
+               </defs>
+               <rect width="100%" height="100%" fill="url(#grid)" />
+            </svg>
+         </div>
+         
+         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-12">
+            <div className="max-w-xl space-y-6">
+               <div className="bg-white/10 px-4 py-1.5 rounded-lg inline-flex items-center gap-2 text-[10px] font-black uppercase tracking-widest border border-white/10">
+                  <AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Security Protocol v2
+               </div>
+               <h2 className="text-3xl font-black tracking-tight leading-tight">Key Rotation Advisory</h2>
+               <p className="text-slate-400 font-medium leading-relaxed">
+                  For maximum security, we recommend rotating your production keys every 90 days. If you suspect a key has been compromised, use the <span className="text-white font-black">Revoke</span> action immediately to terminate all active sessions.
+               </p>
+            </div>
+            <div className="shrink-0 space-y-4 w-full md:w-auto">
+               <div className="p-6 bg-white/5 rounded-[24px] border border-white/5 flex items-center gap-5">
+                  <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white">
+                     <RotateCcw className="w-6 h-6" />
+                  </div>
+                  <div>
+                     <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Rotation Interval</p>
+                     <p className="text-lg font-black text-white">90 Days (Rec.)</p>
+                  </div>
+               </div>
+            </div>
+         </div>
+      </div>
+
     </div>
   );
 }

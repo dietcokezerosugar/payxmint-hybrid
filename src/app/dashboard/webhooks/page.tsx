@@ -50,31 +50,31 @@ export default function WebhooksPage() {
   }
 
   return (
-    <div className="space-y-8 pb-12 font-sans px-2 md:px-0 max-w-4xl mx-auto">
+    <div className="space-y-6 md:space-y-8 pb-12 font-sans px-2 md:px-0 max-w-4xl mx-auto animate-in fade-in duration-500">
       <div>
-        <h1 className="text-2xl md:text-3xl font-black tracking-tight">Webhooks</h1>
-        <p className="text-muted-foreground text-xs md:text-base mt-1">Real-time POST delivery for payment events.</p>
+        <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900">Event Dispatch</h1>
+        <p className="text-slate-500 font-bold text-[11px] uppercase tracking-widest mt-1">Configure real-time POST delivery infrastructure</p>
       </div>
 
-      <div className="bg-white rounded-[32px] md:rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="p-6 md:p-8 space-y-8">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600 border border-indigo-100 shadow-sm">
+          <div className="flex items-center gap-5">
+            <div className="w-14 h-14 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 border border-blue-100 shadow-sm">
               <Webhook className="w-7 h-7" />
             </div>
             <div>
-              <h3 className="text-lg font-black text-slate-900">Endpoint URL</h3>
-              <p className="text-[10px] md:text-xs text-slate-500 font-medium">Triggered instantly on transaction verification.</p>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-tight leading-none mb-1.5">Destination Endpoint</h3>
+              <p className="text-[11px] font-bold text-slate-400 uppercase tracking-tight">System will dispatch high-integrity event objects to this URI.</p>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Webhook Target</label>
+          <div className="space-y-1.5">
+            <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Integrity URI</label>
             <input
               value={webhookUrl}
               onChange={(e) => setWebhookUrl(e.target.value)}
               placeholder="https://api.yourdomain.com/webhooks/wave"
-              className="w-full px-5 py-4 bg-slate-50 border border-slate-200 rounded-2xl text-sm md:text-base font-mono focus:ring-4 focus:ring-indigo-600/5 outline-none transition-all placeholder:text-slate-300"
+              className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-mono font-black text-slate-900 focus:bg-white focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 outline-none transition-all placeholder:text-slate-200"
             />
           </div>
 
@@ -82,35 +82,37 @@ export default function WebhooksPage() {
             <button
               onClick={saveWebhook}
               disabled={loading}
-              className="w-full md:w-auto px-8 py-4 bg-primary text-white rounded-2xl text-sm font-black flex items-center justify-center gap-2 hover:bg-blue-600 transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98] disabled:opacity-50"
+              className="w-full md:w-auto px-8 py-3.5 bg-slate-900 text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-black transition-all shadow-lg shadow-slate-900/10 active:scale-95 disabled:opacity-50"
             >
-              {saved ? <><CheckCircle2 className="w-5 h-5 text-emerald-400" /> Endpoint Saved</> : <><Save className="w-5 h-5" /> {loading ? "Updating..." : "Save Webhook"}</>}
+              {saved ? <><CheckCircle2 className="w-4 h-4 text-emerald-400" /> Endpoint Synced</> : <><Save className="w-4 h-4" /> {loading ? "Syncing..." : "Commit Endpoint"}</>}
             </button>
             <button
               onClick={testWebhook}
               disabled={!webhookUrl}
-              className="w-full md:w-auto px-8 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl text-sm font-black hover:bg-slate-50 transition-all active:scale-[0.98] disabled:opacity-50"
+              className="w-full md:w-auto px-8 py-3.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50 shadow-sm"
             >
-              Deliver Test Event
+              Dispatch Test Packet
             </button>
           </div>
         </div>
       </div>
 
       {/* Payload Example */}
-      <div className="space-y-3">
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-4">POST Payload Schema</h3>
-        <div className="bg-slate-950 rounded-[32px] md:rounded-2xl overflow-hidden border border-slate-800 shadow-xl">
-          <div className="bg-slate-900 px-6 py-4 flex items-center justify-between border-b border-slate-800">
-            <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest font-mono">application/json</span>
-            <div className="flex gap-1.5">
-               <div className="w-2 h-2 rounded-full bg-slate-700" />
-               <div className="w-2 h-2 rounded-full bg-slate-700" />
-               <div className="w-2 h-2 rounded-full bg-slate-700" />
+      <div className="space-y-4">
+        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-4">Packet Schema (POST JSON)</h3>
+        <div className="bg-slate-950 rounded-2xl overflow-hidden border border-slate-800 shadow-xl">
+          <div className="bg-slate-900 px-6 py-3 flex items-center justify-between border-b border-slate-800">
+            <div className="flex items-center gap-3">
+               <div className="flex gap-1.5">
+                  <div className="w-2 h-2 rounded-full bg-rose-500/20 border border-rose-500/30" />
+                  <div className="w-2 h-2 rounded-full bg-amber-500/20 border border-amber-500/30" />
+                  <div className="w-2 h-2 rounded-full bg-emerald-500/20 border border-emerald-500/30" />
+               </div>
+               <span className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] font-mono">application/json</span>
             </div>
           </div>
           <div className="p-6 md:p-8 overflow-x-auto">
-            <pre className="text-[11px] md:text-sm text-slate-300 font-mono leading-relaxed">
+            <pre className="text-[11px] md:text-[13px] text-blue-200 font-mono leading-relaxed">
 {`{
   "event": "payment.success",
   "status": "SUCCESS",

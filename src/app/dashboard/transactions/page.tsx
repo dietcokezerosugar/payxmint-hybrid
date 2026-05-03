@@ -1,102 +1,202 @@
-import { prisma } from "@/lib/prisma";
-import { Download, CheckCircle2, Clock, XCircle, AlertTriangle } from "lucide-react";
-import Link from "next/link";
+"use client";
 
-export default async function TransactionsPage() {
-  const merchant = await prisma.merchant.findFirst();
-  if (!merchant) return <div className="p-20 text-center font-black text-slate-500 uppercase tracking-widest">No Merchant Account Found</div>;
+import React, { useState, useEffect } from "react";
+import { Download, CheckCircle2, Clock, XCircle, AlertTriangle, Search, X } from "lucide-react";
 
-  const intents = await prisma.paymentIntent.findMany({
-    where: { merchantId: merchant.id },
-    include: { transaction: true },
-    orderBy: { createdAt: "desc" },
-    take: 100,
+export default function TransactionsPage() {
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const [approvalModal, setApprovalModal] = useState<any>(null);
+  const [approvalStatus, setApprovalStatus] = useState("SUCCESS");
+  const [approvalUtr, setApprovalUtr] = useState("");
+  const [approvalNote, setApprovalNote] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    fetchTransactions();
+    const interval = setInterval(fetchTransactions, 10000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const fetchTransactions = async () => {
+    try {
+      const res = await fetch("/api/dashboard/transactions");
+      const data = await res.json();
+      setTransactions(data.data || []);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleApproval = async () => {
+    if (!approvalModal) return;
+    setSubmitting(true);
+    try {
+      await fetch("/api/dashboard/transactions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: approvalModal.id,
+          status: approvalStatus,
+          utr: approvalUtr || undefined,
+          note: approvalNote || undefined,
+        }),
+      });
+      setApprovalModal(null);
+      setApprovalUtr("");
+      setApprovalNote("");
+      fetchTransactions();
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const filtered = transactions.filter((t) => {
+    const matchesStatus = statusFilter === "ALL" || t.status === statusFilter;
+    const matchesSearch =
+      !searchQuery ||
+      t.referenceId?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.transaction?.utr?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.payerName?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesStatus && matchesSearch;
   });
 
   function statusIcon(status: string) {
     switch (status) {
       case "SUCCESS":
-        return <CheckCircle2 className="w-4 h-4 text-green-500" />;
+        return <CheckCircle2 className="w-4 h-4 text-emerald-500" />;
       case "PENDING":
-        return <Clock className="w-4 h-4 text-yellow-500" />;
+        return <Clock className="w-4 h-4 text-blue-500" />;
       case "EXPIRED":
-        return <AlertTriangle className="w-4 h-4 text-gray-400" />;
+        return <AlertTriangle className="w-4 h-4 text-slate-400" />;
       default:
-        return <XCircle className="w-4 h-4 text-red-500" />;
+        return <XCircle className="w-4 h-4 text-rose-500" />;
     }
   }
 
   function statusColor(status: string) {
     switch (status) {
-      case "SUCCESS": return "text-green-600";
-      case "PENDING": return "text-yellow-600";
-      case "EXPIRED": return "text-gray-400";
-      default: return "text-red-600";
+      case "SUCCESS": return "text-emerald-600";
+      case "PENDING": return "text-blue-600";
+      case "EXPIRED": return "text-slate-400";
+      default: return "text-rose-600";
     }
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
-          <p className="text-muted-foreground">Monitor and export your payment intents.</p>
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900">Activity Ledger</h1>
+          <p className="text-slate-500 font-bold text-[11px] uppercase tracking-widest mt-1">Real-time settlement & transaction audit</p>
         </div>
-        <a
-          href="/api/export"
-          className="px-4 py-2 bg-secondary text-foreground rounded-full text-sm font-bold flex items-center gap-2 hover:bg-gray-200 transition-all border border-gray-200"
+        <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg border border-emerald-100 shadow-sm">
+             <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+             <span className="text-[10px] font-black uppercase tracking-widest">Network Live</span>
+          </div>
+          <a
+            href="/api/export"
+            className="flex-1 md:flex-none px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-black transition-all shadow-md shadow-slate-900/10 active:scale-95"
+          >
+            <Download className="w-4 h-4" /> Export Ledger
+          </a>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="md:col-span-2 relative">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Search by Reference, UTR or Name..."
+            className="w-full bg-white border border-slate-200 rounded-xl py-3.5 pl-12 pr-4 text-sm font-bold text-slate-900 focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all shadow-sm placeholder:text-slate-300"
+          />
+        </div>
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="bg-white border border-slate-200 rounded-xl px-6 py-3.5 text-[11px] font-black text-slate-700 uppercase tracking-widest focus:outline-none focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 shadow-sm cursor-pointer"
         >
-          <Download className="w-4 h-4" /> Export CSV
-        </a>
+          <option value="ALL">ALL STATUSES</option>
+          <option value="SUCCESS">SUCCESS</option>
+          <option value="PENDING">PENDING</option>
+          <option value="FAILED">FAILED</option>
+          <option value="EXPIRED">EXPIRED</option>
+        </select>
+        <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 rounded-xl px-6 py-3.5 shadow-inner">
+          <span className="text-sm font-black text-slate-900 leading-none">{filtered.length}</span>
+          <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Records</span>
+        </div>
       </div>
 
       {/* Desktop View Table */}
-      <div className="hidden md:block apple-card">
+      <div className="hidden md:block bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse min-w-[800px]">
-            <thead className="bg-gray-50 text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+            <thead className="bg-slate-50/50 border-b border-slate-100">
               <tr>
-                <th className="px-6 py-4">Status</th>
-                <th className="px-6 py-4">Reference</th>
-                <th className="px-6 py-4">Amount</th>
-                <th className="px-6 py-4">Payer</th>
-                <th className="px-6 py-4">UTR / ID</th>
-                <th className="px-6 py-4">Date</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Order Status</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Reference</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Volume</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Counterparty</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Network ID (UTR)</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest">Processed At</th>
+                <th className="px-6 py-4 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Settlement</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-gray-100">
-              {intents.length === 0 ? (
+            <tbody className="divide-y divide-slate-50">
+              {loading && transactions.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-12 text-center text-muted-foreground italic">
-                    No transactions found yet. Create a payment intent via the API.
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-bold text-[10px] uppercase tracking-widest animate-pulse">
+                    Synchronizing ledger...
+                  </td>
+                </tr>
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-slate-400 font-bold text-[10px] uppercase tracking-widest">
+                    No matching activity found
                   </td>
                 </tr>
               ) : (
-                intents.map((intent) => (
-                  <tr key={intent.id} className="hover:bg-gray-50 transition-colors text-sm">
+                filtered.map((intent) => (
+                  <tr key={intent.id} className="hover:bg-slate-50/50 transition-colors group">
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2 font-bold">
+                      <div className="flex items-center gap-2 font-black text-[10px] uppercase tracking-widest">
                         {statusIcon(intent.status)}
                         <span className={statusColor(intent.status)}>{intent.status}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-mono font-medium text-gray-900 text-xs">{intent.referenceId}</td>
-                    <td className="px-6 py-4 font-bold text-gray-900">₹{intent.amount.toLocaleString()}</td>
-                    <td className="px-6 py-4 text-xs whitespace-nowrap">
-                      {intent.payerName || intent.transaction?.payerName || <span className="text-gray-300">—</span>}
+                    <td className="px-6 py-4 font-mono font-bold text-slate-900 text-[11px]">{intent.referenceId}</td>
+                    <td className="px-6 py-4 font-black text-slate-900 text-sm">₹{intent.amount.toLocaleString()}</td>
+                    <td className="px-6 py-4 text-[11px] font-bold text-slate-600">
+                      {intent.payerName || intent.transaction?.payerName || <span className="text-slate-300">—</span>}
                     </td>
                     <td className="px-6 py-4">
-                      <p className="text-xs text-muted-foreground truncate max-w-[150px] font-mono">
-                        {intent.transaction?.utr || intent.transaction?.externalId || "—"}
+                      <p className="text-[11px] text-slate-500 font-mono font-bold bg-slate-50 px-2 py-0.5 rounded border border-slate-100 inline-block">
+                        {intent.transaction?.utr || intent.transaction?.externalId || "PENDING"}
                       </p>
                     </td>
-                    <td className="px-6 py-4 text-muted-foreground text-xs whitespace-nowrap">
-                      {intent.createdAt.toLocaleString("en-IN", {
-                        day: "2-digit",
-                        month: "short",
-                        hour: "2-digit",
-                        minute: "2-digit",
+                    <td className="px-6 py-4 text-slate-400 text-[11px] font-bold whitespace-nowrap">
+                      {new Date(intent.createdAt).toLocaleString("en-IN", {
+                        day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
                       })}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                       {intent.status === "PENDING" && (
+                          <button 
+                            onClick={() => { setApprovalModal(intent); setApprovalStatus("SUCCESS"); }}
+                            className="px-4 py-1.5 bg-blue-50 text-blue-600 hover:bg-blue-600 hover:text-white rounded-lg text-[10px] font-black uppercase tracking-widest transition-all border border-blue-100 shadow-sm"
+                          >
+                             Approve
+                          </button>
+                       )}
                     </td>
                   </tr>
                 ))
@@ -108,43 +208,132 @@ export default async function TransactionsPage() {
 
       {/* Mobile View Cards */}
       <div className="md:hidden space-y-3">
-        {intents.length === 0 ? (
-          <div className="apple-card p-12 text-center text-muted-foreground italic text-sm">
-            No transactions found yet.
-          </div>
-        ) : (
-          intents.map((intent) => (
-            <div key={intent.id} className="apple-card p-4 flex items-center justify-between gap-4 active:bg-gray-50 transition-colors">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
-                  intent.status === "SUCCESS" ? "bg-green-50 text-green-600" : 
-                  intent.status === "PENDING" ? "bg-yellow-50 text-yellow-600" : "bg-gray-50 text-gray-400"
-                }`}>
-                  {statusIcon(intent.status)}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-gray-900 truncate">{intent.payerName || intent.transaction?.payerName || "Anonymous Payer"}</p>
-                  <p className="text-[10px] font-mono text-muted-foreground truncate">{intent.referenceId}</p>
-                  <p className="text-[10px] text-muted-foreground mt-1">
-                    {intent.createdAt.toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
-                  </p>
-                </div>
-              </div>
-              <div className="text-right shrink-0">
-                <p className="text-sm font-black text-gray-900">₹{intent.amount.toLocaleString()}</p>
-                <div className="flex items-center justify-end gap-1 mt-1">
-                   <span className={`text-[9px] font-bold uppercase tracking-widest px-1.5 py-0.5 rounded-full ${
-                     intent.status === "SUCCESS" ? "bg-green-100 text-green-700" : 
-                     intent.status === "PENDING" ? "bg-yellow-100 text-yellow-700" : "bg-gray-100 text-gray-500"
-                   }`}>
+         {filtered.map((intent) => (
+            <div key={intent.id} className="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-col gap-4">
+               <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border shadow-sm ${
+                       intent.status === "SUCCESS" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : 
+                       intent.status === "PENDING" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-slate-50 text-slate-400 border-slate-200"
+                     }`}>
+                       {statusIcon(intent.status)}
+                     </div>
+                     <div>
+                        <p className="text-sm font-black text-slate-900 leading-none">₹{intent.amount.toLocaleString()}</p>
+                        <p className="text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-tight truncate max-w-[120px]">{intent.payerName || "Anonymous Payer"}</p>
+                     </div>
+                  </div>
+                  <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-1 rounded border ${
+                     intent.status === "SUCCESS" ? "bg-emerald-50 text-emerald-600 border-emerald-100" : 
+                     intent.status === "PENDING" ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-slate-50 text-slate-400 border-slate-100"
+                  }`}>
                     {intent.status}
                   </span>
+               </div>
+               
+               <div className="flex items-center justify-between pt-4 border-t border-slate-100">
+                  <div>
+                    <p className="text-[10px] font-mono font-bold text-slate-900">{intent.referenceId}</p>
+                    <p className="text-[9px] font-bold text-slate-400 mt-1 uppercase tracking-tight">
+                      {new Date(intent.createdAt).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}
+                    </p>
+                  </div>
+                  {intent.status === "PENDING" && (
+                    <button 
+                      onClick={() => { setApprovalModal(intent); setApprovalStatus("SUCCESS"); }}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest shadow-md shadow-blue-600/20 transition-all active:scale-95"
+                    >
+                       Handle
+                    </button>
+                  )}
+               </div>
+            </div>
+         ))}
+      </div>
+
+      {/* Approval Modal */}
+      {/* Approval Modal */}
+      {approvalModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setApprovalModal(null)} />
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 animate-in zoom-in-95 duration-300">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Manual Audit Settlement</h3>
+              <button onClick={() => setApprovalModal(null)} className="p-2 hover:bg-slate-100 rounded-full transition-colors border border-transparent hover:border-slate-200">
+                <X className="w-5 h-5 text-slate-400" />
+              </button>
+            </div>
+
+            <div className="p-6 space-y-6">
+              <div className="bg-slate-50 rounded-xl p-5 border border-slate-200 space-y-4">
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ledger Reference</span>
+                  <span className="text-[11px] font-black text-slate-900 font-mono">{approvalModal.referenceId}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Settlement Value</span>
+                  <span className="text-sm font-black text-blue-600">₹{approvalModal.amount?.toLocaleString()}</span>
                 </div>
               </div>
+
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Audit Resolution</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setApprovalStatus("SUCCESS")}
+                    className={`py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all border-2 ${
+                      approvalStatus === "SUCCESS"
+                        ? "bg-emerald-50 text-emerald-600 border-emerald-500 shadow-md shadow-emerald-500/10"
+                        : "bg-white text-slate-400 border-slate-100 hover:border-slate-200"
+                    }`}
+                  >
+                    Set Success
+                  </button>
+                  <button
+                    onClick={() => setApprovalStatus("FAILED")}
+                    className={`py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all border-2 ${
+                      approvalStatus === "FAILED"
+                        ? "bg-rose-50 text-rose-600 border-rose-500 shadow-md shadow-rose-500/10"
+                        : "bg-white text-slate-400 border-slate-100 hover:border-slate-200"
+                    }`}
+                  >
+                    Set Failed
+                  </button>
+                </div>
+              </div>
+
+              {approvalStatus === "SUCCESS" && (
+                <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Network Identifier (UTR)</label>
+                  <input
+                    type="text"
+                    value={approvalUtr}
+                    onChange={(e) => setApprovalUtr(e.target.value)}
+                    placeholder="Enter 12-digit UTR Number..."
+                    className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:bg-white focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all placeholder:text-slate-300"
+                  />
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight px-1">This ID will be used for final cryptographic settlement.</p>
+                </div>
+              )}
             </div>
-          ))
-        )}
-      </div>
+
+            <div className="p-6 border-t border-slate-100 flex gap-3 bg-slate-50/30">
+              <button onClick={() => setApprovalModal(null)} className="flex-1 py-3 text-slate-400 font-black text-[11px] uppercase tracking-widest hover:bg-white hover:text-slate-600 rounded-xl transition-all border border-transparent hover:border-slate-200">
+                Cancel
+              </button>
+              <button
+                onClick={handleApproval}
+                disabled={submitting || (approvalStatus === "SUCCESS" && !approvalUtr.trim())}
+                className={`flex-1 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20 disabled:opacity-50 disabled:cursor-not-allowed ${
+                  approvalStatus === "SUCCESS" ? "bg-blue-600 text-white hover:bg-blue-700" : "bg-rose-600 text-white hover:bg-rose-700"
+                }`}
+              >
+                {submitting ? "Settling..." : "Commit Transaction"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

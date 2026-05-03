@@ -1,29 +1,21 @@
 import { prisma } from "@/lib/prisma";
-import { notFound } from "next/navigation";
-import PaymentPageClient from "./PaymentPageClient";
+import { notFound, redirect } from "next/navigation";
+
+export const dynamic = "force-dynamic";
 
 export default async function PaymentPage({ params }: { params: { token: string } }) {
   const { token } = await params;
 
+  // Verify the token exists before redirecting
   const intent = await prisma.paymentIntent.findUnique({
     where: { paymentToken: token },
-    include: { merchant: true },
+    select: { id: true },
   });
 
   if (!intent) {
     notFound();
   }
 
-  return (
-    <PaymentPageClient
-      token={token}
-      amount={intent.amount}
-      merchantName={intent.merchant.businessName || intent.merchant.name}
-      referenceId={intent.referenceId}
-      upiDeepLink={intent.upiDeepLink || ""}
-      qrData={intent.qrData || ""}
-      status={intent.status}
-      expireAt={intent.expireAt ? intent.expireAt.toISOString() : undefined}
-    />
-  );
+  // Redirect to the raw HTML checkout page
+  redirect(`/checkout/${token}`);
 }

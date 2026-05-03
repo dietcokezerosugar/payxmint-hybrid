@@ -17,7 +17,8 @@ import {
   MoreHorizontal,
   BarChart3,
   Plus,
-  Search
+  Search,
+  Book
 } from "lucide-react";
 import { usePathname, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -44,6 +45,7 @@ export default function DashboardLayout({
     { label: "API Keys", icon: Key, href: "/dashboard/api-keys", shortcut: "K" },
     { label: "API Logs", icon: Terminal, href: "/dashboard/logs", shortcut: "L" },
     { label: "Webhooks", icon: Webhook, href: "/dashboard/webhooks", shortcut: "W" },
+    { label: "Docs", icon: Book, href: "/dashboard/docs", shortcut: "D" },
     { label: "Settings", icon: Settings, href: "/dashboard/settings", shortcut: "S" },
   ];
 
@@ -147,12 +149,12 @@ export default function DashboardLayout({
                 <input 
                   autoFocus
                   placeholder="Type a command or search..."
-                  className="w-full px-4 py-5 text-sm outline-none font-medium text-slate-900"
+                  className="w-full px-4 py-5 text-sm outline-none font-medium text-slate-900 placeholder:text-slate-400 bg-transparent"
                   value={commandQuery}
                   onChange={(e) => setCommandQuery(e.target.value)}
                 />
-                <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-50 border border-slate-100 rounded-md">
-                   <span className="text-[10px] font-black text-slate-400">ESC</span>
+                <div className="flex items-center gap-1.5 px-2 py-1 bg-slate-100 border border-slate-200 rounded-md">
+                   <span className="text-[10px] font-black text-slate-500">ESC</span>
                 </div>
               </div>
               
@@ -169,16 +171,16 @@ export default function DashboardLayout({
                             router.push(item.href);
                             setIsCommandPaletteOpen(false);
                           }}
-                          className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 rounded-xl transition-all group"
+                          className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-slate-50 rounded-lg transition-all group"
                         >
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-slate-900 transition-colors">
+                            <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:text-slate-900 transition-colors border border-slate-100">
                               <item.icon className="w-3.5 h-3.5" />
                             </div>
-                            <span className="text-xs font-bold text-slate-700">{item.label}</span>
+                            <span className="text-[13px] font-bold text-slate-700">{item.label}</span>
                           </div>
                           <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                             <span className="text-[9px] font-black text-slate-300">G + {item.shortcut}</span>
+                             <span className="text-[10px] font-black text-slate-300 tracking-widest">G + {item.shortcut}</span>
                           </div>
                         </button>
                       ))}
@@ -195,15 +197,15 @@ export default function DashboardLayout({
                               router.push(item.href);
                               setIsCommandPaletteOpen(false);
                             }}
-                            className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-indigo-50/50 rounded-xl transition-all group border border-transparent hover:border-indigo-100"
+                            className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-blue-50/50 rounded-lg transition-all group border border-transparent hover:border-blue-100"
                           >
                             <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                              <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center text-blue-600 border border-blue-100">
                                 <item.icon className="w-3.5 h-3.5" />
                               </div>
-                              <span className="text-xs font-bold text-slate-900">{item.label}</span>
+                              <span className="text-[13px] font-bold text-slate-900">{item.label}</span>
                             </div>
-                            <div className="px-2 py-0.5 bg-indigo-100 text-indigo-600 rounded text-[9px] font-black uppercase opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className="px-2 py-0.5 bg-blue-100 text-blue-600 rounded text-[9px] font-black uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
                                Action
                             </div>
                           </button>
@@ -251,12 +253,12 @@ export default function DashboardLayout({
               href="/dashboard/analytics"
               className={`flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold rounded-lg transition-all ${
                 pathname === "/dashboard/analytics" 
-                  ? "bg-slate-900 text-white" 
+                  ? "bg-slate-900 text-white shadow-md shadow-slate-900/10" 
                   : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
               }`}
             >
               <BarChart3 className="w-4 h-4" />
-              Analytics
+              Intelligence Dashboard
             </Link>
           </div>
 
@@ -271,7 +273,7 @@ export default function DashboardLayout({
                      href={item.href}
                      className={`flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold rounded-lg transition-all ${
                        pathname === item.href 
-                         ? "bg-slate-900 text-white" 
+                         ? "bg-blue-600 text-white shadow-md shadow-blue-600/10" 
                          : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                      }`}
                    >
@@ -291,7 +293,7 @@ export default function DashboardLayout({
                      href={item.href}
                      className={`flex items-center gap-2.5 px-3 py-2 text-[11px] font-bold rounded-lg transition-all ${
                        pathname === item.href 
-                         ? "bg-slate-900 text-white" 
+                         ? "bg-slate-900 text-white shadow-md shadow-slate-900/10" 
                          : "text-slate-500 hover:text-slate-900 hover:bg-slate-50"
                      }`}
                    >
@@ -305,8 +307,8 @@ export default function DashboardLayout({
         </nav>
 
         <div className="p-4 border-t border-slate-50">
-           <div className="px-3 py-2 rounded-lg bg-slate-50 flex items-center justify-between">
-              <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">System Health</span>
+           <div className="px-3 py-2.5 rounded-xl bg-slate-50 flex items-center justify-between border border-slate-100 shadow-inner">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Security</span>
               <div className={`w-1.5 h-1.5 rounded-full ${
                 systemStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 
                 systemStatus === 'error' ? 'bg-rose-500 animate-pulse' : 'bg-amber-400'
@@ -402,12 +404,12 @@ export default function DashboardLayout({
             className="md:hidden fixed inset-0 bg-black/60 z-[60] backdrop-blur-sm animate-in fade-in duration-300"
             onClick={() => setIsMobileMenuOpen(false)}
           />
-          <aside className="md:hidden fixed inset-x-0 bottom-0 z-[70] bg-white rounded-t-[32px] p-6 pb-12 animate-in slide-in-from-bottom duration-400">
-            <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto mb-8" onClick={() => setIsMobileMenuOpen(false)} />
+          <aside className="md:hidden fixed inset-x-0 bottom-0 z-[70] bg-white rounded-t-2xl p-6 pb-12 animate-in slide-in-from-bottom duration-400 shadow-2xl border-t border-slate-100">
+            <div className="w-12 h-1.5 bg-slate-100 rounded-full mx-auto mb-8" onClick={() => setIsMobileMenuOpen(false)} />
             <div className="flex items-center justify-between mb-8">
-              <h2 className="text-xl font-bold">More Options</h2>
-              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-gray-100 rounded-full">
-                <X className="w-5 h-5 text-gray-500" />
+              <h2 className="text-xl font-black text-slate-900 tracking-tight">More Options</h2>
+              <button onClick={() => setIsMobileMenuOpen(false)} className="p-2 bg-slate-50 rounded-full border border-slate-100">
+                <X className="w-5 h-5 text-slate-400" />
               </button>
             </div>
             
@@ -417,12 +419,12 @@ export default function DashboardLayout({
                   key={item.label}
                   href={item.href}
                   onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex flex-col items-center gap-3 p-4 bg-gray-50 rounded-2xl border border-gray-100 active:scale-95 transition-all"
+                  className="flex flex-col items-center gap-3 p-4 bg-white rounded-xl border border-slate-100 active:scale-95 transition-all shadow-sm"
                 >
-                  <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm border border-gray-100">
-                    <item.icon className="w-5 h-5 text-primary" />
+                  <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center border border-slate-100">
+                    <item.icon className="w-5 h-5 text-blue-600" />
                   </div>
-                  <span className="text-xs font-bold text-gray-700">{item.label}</span>
+                  <span className="text-xs font-bold text-slate-700">{item.label}</span>
                 </Link>
               ))}
             </div>

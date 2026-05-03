@@ -29,9 +29,15 @@ model Merchant {
   walletBalance    Float            @default(0)
   commissionRate   Float            @default(0)
   
-  // Whitelist
+  // Whitelist & Integration
   ipWhitelist      String?          // Comma separated IPs
-  webhookWhitelist String?          // Comma separated URLs
+  webhookWhitelist String?          // Optional: restricted webhook origins
+  webhookUrl       String?          
+  redirectUrl      String?          
+  
+  // Telegram Alerts
+  telegramBotToken String?
+  telegramChatId   String?
   
   // Relations
   users            User[]
@@ -41,6 +47,8 @@ model Merchant {
   ledgerEntries    WalletLedger[]
   agent            Agent?           @relation(fields: [agentId], references: [id])
   agentId          String?
+  
+  apiAccessStatus  String           @default("NOT_REQUESTED") // NOT_REQUESTED, PENDING, APPROVED
   
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -100,6 +108,11 @@ model PaymentIntent {
   payerUpiId       String?
   transactionId    String?     @unique // linked after verification
   transaction      Transaction? @relation(fields: [transactionId], references: [id])
+  
+  // Auditing & Manual Flow
+  isManualApproval Boolean     @default(false)
+  approvalIp       String?     
+  
   createdAt        DateTime    @default(now())
   expireAt         DateTime?
   updatedAt        DateTime    @updatedAt
@@ -164,8 +177,10 @@ model AuditLog {
 
 model ApiLog {
   id        String   @id @default(cuid())
-  level     String   @default("INFO")
+  merchantId String?
+  level     String   @default("INFO") // INFO, SUCCESS, WARNING, ERROR, CRITICAL
   message   String
   metadata  String?  // JSON string
   timestamp DateTime @default(now())
 }
+

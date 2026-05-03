@@ -1,26 +1,58 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { logApi } from "@/lib/log";
+import { validateIpWhitelist } from "@/lib/security";
 
-export async function POST(req: NextRequest) {
+async function getStatus(req: NextRequest) {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
-      return NextResponse.json({ status: "failure", message: "Missing API key" }, { status: 401 });
+      return NextResponse.json({ 
+        status: "failure", 
+        error: "AUTHENTICATION_FAILED",
+        message: "Missing API key" 
+      }, { status: 401 });
     }
 
     const apiKey = authHeader.replace("Bearer ", "");
-    const body = await req.json();
-    const { order_id } = body;
+    
+    // Get order_id from body or query params
+    let order_id: string | null = null;
+    if (req.method === "POST") {
+      try {
+        const body = await req.json();
+        order_id = body.order_id;
+      } catch (e) {}
+    } else {
+      order_id = req.nextUrl.searchParams.get("order_id");
+    }
 
     if (!order_id) {
-      return NextResponse.json({ status: "failure", message: "Missing order_id" }, { status: 400 });
+      return NextResponse.json({ 
+        status: "failure", 
+        error: "MISSING_PARAMETER",
+        message: "order_id is required." 
+      }, { status: 400 });
     }
 
     // Validate API key
     const keyData = await prisma.apiKey.findUnique({ where: { key: apiKey } });
     if (!keyData) {
-      return NextResponse.json({ status: "failure", message: "Invalid API Key" }, { status: 401 });
+      return NextResponse.json({ 
+        status: "failure", 
+        error: "INVALID_API_KEY",
+        message: "The provided API key is invalid." 
+      }, { status: 401 });
+    }
+
+    // Validate IP Whitelist
+    const ip = req.headers.get("x-forwarded-for") || "unknown";
+    if (!(await validateIpWhitelist(keyData.merchantId, ip))) {
+       return NextResponse.json({ 
+         status: "failure", 
+         error: "SECURITY_ERROR",
+         message: `IP Address ${ip} is not authorized for this merchant.` 
+       }, { status: 403 });
     }
 
     const intent = await prisma.paymentIntent.findUnique({
@@ -29,10 +61,14 @@ export async function POST(req: NextRequest) {
     });
 
     if (!intent || intent.merchantId !== keyData.merchantId) {
-      return NextResponse.json({ status: "failure", message: "Order not found" }, { status: 404 });
+      return NextResponse.json({ 
+        status: "failure", 
+        error: "NOT_FOUND",
+        message: "Payment intent not found for this order_id." 
+      }, { status: 404 });
     }
 
-    await logApi("INFO", "Check status", { orderId: order_id, status: intent.status });
+    await logApi("INFO", "External API: Check Status", { orderId: order_id, status: intent.status });
 
     return NextResponse.json({
       status: "success",
@@ -40,16 +76,29 @@ export async function POST(req: NextRequest) {
         order_id: intent.referenceId,
         amount: intent.amount,
         status: intent.status,
-        payer_name: intent.payerName || intent.transaction?.payerName || null,
-        payer_upi: intent.payerUpiId || intent.transaction?.payerUpiId || null,
-        utr: intent.transaction?.utr || null,
-        txn_id: intent.transaction?.externalId || null,
-        created_at: intent.createdAt,
-        expire_at: intent.expireAt,
+        payer: {
+          name: intent.payerName || intent.transaction?.payerName || null,
+          upi: intent.payerUpiId || intent.transaction?.payerUpiId || null,
+        },
+        settlement: {
+          utr: intent.transaction?.utr || null,
+          txn_id: intent.transaction?.externalId || null,
+          timestamp: intent.transaction?.timestamp || null,
+        },
+        meta: {
+          created_at: intent.createdAt,
+          expire_at: intent.expireAt,
+        }
       },
     });
   } catch (error: any) {
-    await logApi("ERROR", "Check status failed", { error: error.message });
-    return NextResponse.json({ status: "failure", message: error.message }, { status: 500 });
+    await logApi("ERROR", "External API: Check Status Failure", { error: error.message });
+    return NextResponse.json({ 
+      status: "failure", 
+      error: "INTERNAL_ERROR",
+      message: "An unexpected error occurred." 
+    }, { status: 500 });
   }
 }
+
+export { getStatus as GET, getStatus as POST };

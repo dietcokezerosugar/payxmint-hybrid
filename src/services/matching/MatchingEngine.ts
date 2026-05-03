@@ -121,18 +121,20 @@ export class MatchingEngine {
 
     // ── 5. Trigger webhook (async, non-blocking) ─────────────────────
     if (intent.merchant.webhookUrl) {
-      MatchingEngine.triggerWebhook(intent.merchant.webhookUrl, {
-        event: "payment.success",
-        status: "SUCCESS",
-        amount: intent.amount,
-        txn_id: newTxn.externalId,
-        reference_id: intent.referenceId,
-        utr: newTxn.utr,
-        payer_name: txn.payerName,
-        payer_upi: txn.payerUpiId,
-        timestamp: new Date().toISOString(),
+      import("../notifications/WebhookService").then(({ WebhookService }) => {
+        WebhookService.dispatch(intent.merchant.webhookUrl!, {
+          event: "payment.success",
+          status: "SUCCESS",
+          amount: intent.amount,
+          txn_id: newTxn.externalId,
+          reference_id: intent.referenceId,
+          utr: newTxn.utr,
+          payer_name: txn.payerName,
+          payer_upi: txn.payerUpiId,
+          timestamp: new Date().toISOString(),
+        });
       }).catch((err) =>
-        logApi("ERROR", "Webhook delivery failed", { intentId: intent.id, error: err.message })
+        logApi("ERROR", "Webhook dispatch failed", { intentId: intent.id, error: err.message })
       );
     }
     
@@ -155,9 +157,4 @@ export class MatchingEngine {
     return url.toString();
   }
 
-  private static async triggerWebhook(url: string, payload: Record<string, any>) {
-    console.log(`[MatchingEngine] Webhook → ${url}`);
-    await axios.post(url, payload, { timeout: 10000 });
-    await logApi("INFO", "Webhook delivered", { url, referenceId: payload.reference_id });
-  }
 }

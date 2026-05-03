@@ -6,15 +6,19 @@ export async function GET() {
   if (!merchant) return NextResponse.json({ status: "success", data: [] });
 
   const accounts = await prisma.googlePayAccount.findMany({
-    where: { merchantId: merchant.id, NOT: { status: "DELETED" } },
+    where: { 
+      merchantId: merchant.id, 
+      status: { not: "DELETED" } 
+    },
     orderBy: { createdAt: "desc" },
   });
+  console.log(`[API] Found ${accounts.length} accounts for merchant ${merchant.id}`);
   return NextResponse.json({ status: "success", data: accounts });
 }
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
-  const { name, email, upiId, reportId } = body;
+  const { name, email, upiId, reportId, minTicket, maxTicket } = body;
 
   if (!name || !email || !upiId) {
     return NextResponse.json({ status: "failure", message: "name, email, upiId are required" }, { status: 400 });
@@ -31,7 +35,13 @@ export async function POST(req: NextRequest) {
   if (existing) {
     const updated = await prisma.googlePayAccount.update({
       where: { id: existing.id },
-      data: { email, upiId, reportId: reportId || existing.reportId, status: "ACTIVE" }
+      data: { 
+        email, upiId, 
+        reportId: reportId || existing.reportId, 
+        status: "ACTIVE",
+        ...(minTicket !== undefined && { minTicket: parseFloat(minTicket) }),
+        ...(maxTicket !== undefined && { maxTicket: parseFloat(maxTicket) }),
+      }
     });
     return NextResponse.json({ status: "success", data: updated });
   }
@@ -44,6 +54,8 @@ export async function POST(req: NextRequest) {
       upiId,
       status: "ACTIVE",
       reportId: reportId || null,
+      minTicket: minTicket ? parseFloat(minTicket) : 0,
+      maxTicket: maxTicket ? parseFloat(maxTicket) : 1000000,
     },
   });
 
@@ -69,7 +81,7 @@ export async function DELETE(req: NextRequest) {
 
 export async function PUT(req: NextRequest) {
   const body = await req.json();
-  const { id, status, monthlyLimit } = body;
+  const { id, status, monthlyLimit, minTicket, maxTicket } = body;
 
   if (!id) {
     return NextResponse.json({ status: "failure", message: "id is required" }, { status: 400 });
@@ -78,6 +90,8 @@ export async function PUT(req: NextRequest) {
   const updateData: any = {};
   if (status !== undefined) updateData.status = status;
   if (monthlyLimit !== undefined) updateData.monthlyLimit = parseFloat(monthlyLimit);
+  if (minTicket !== undefined) updateData.minTicket = parseFloat(minTicket);
+  if (maxTicket !== undefined) updateData.maxTicket = parseFloat(maxTicket);
 
   const account = await prisma.googlePayAccount.update({
     where: { id },

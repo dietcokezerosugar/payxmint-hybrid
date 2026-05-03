@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { MatchingEngine } from "@/services/matching/MatchingEngine";
 
+// Never cache status responses
+export const dynamic = "force-dynamic";
+
 /**
  * Payment page status polling endpoint.
  * The hosted payment page polls this to detect when payment is verified.
@@ -54,7 +57,10 @@ export async function GET(req: NextRequest) {
     data: {
       payment_status: intent.status,
       payer_name: intent.payerName || intent.transaction?.payerName || null,
+      utr: intent.transaction?.utr || null,
       redirect_url: redirectUrl,
     },
+  }, {
+    headers: { "Cache-Control": "no-store, no-cache, must-revalidate, max-age=0" },
   });
 }

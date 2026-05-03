@@ -3,6 +3,7 @@ import QRCode from "qrcode";
 import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
 import { GatewayRouter } from "../routing/GatewayRouter";
+import { validateIpWhitelist } from "@/lib/security";
 
 export interface PaymentIntentOptions {
   amount: number;
@@ -11,6 +12,7 @@ export interface PaymentIntentOptions {
   customerEmail?: string;
   apiKey: string;
   redirectUrl?: string;
+  ip?: string;         // IP for whitelisting check
 }
 
 export class PaymentEngine {
@@ -18,7 +20,7 @@ export class PaymentEngine {
    * Create a payment intent — ported from BloomXHub create_order.php
    */
   static async createIntent(options: PaymentIntentOptions) {
-    const { amount, orderId, customerMobile, customerEmail, apiKey, redirectUrl } = options;
+    const { amount, orderId, customerMobile, customerEmail, apiKey, redirectUrl, ip } = options;
 
     // ── 1. Validate API Key ──────────────────────────────────────────
     const keyData = await prisma.apiKey.findUnique({
@@ -32,6 +34,11 @@ export class PaymentEngine {
 
     if (keyData.isBlocked || keyData.merchant.status !== "ACTIVE") {
       throw new Error("API Key or Merchant account is blocked/suspended.");
+    }
+
+    // ── 1b. Validate IP Whitelist ────────────────────────────────────
+    if (ip && !(await validateIpWhitelist(keyData.merchantId, ip))) {
+      throw new Error(`SECURITY_ERROR: IP Address ${ip} is not authorized for this merchant.`);
     }
 
     // ── SaaS: Check Wallet Balance ──────────────────────────────────
