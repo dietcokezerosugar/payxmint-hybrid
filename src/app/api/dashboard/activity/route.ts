@@ -8,23 +8,33 @@ export async function GET() {
     let session = await getServerSession(authOptions);
     let merchantId = session?.user?.merchantId;
 
-    if (!merchantId) {
-      // DEMO FALLBACK: Use the first merchant in the database
-      const firstMerchant = await prisma.merchant.findFirst({ select: { id: true } });
-      merchantId = firstMerchant?.id;
+    try {
+      if (!merchantId) {
+        // DEMO FALLBACK: Use the first merchant in the database
+        const firstMerchant = await prisma.merchant.findFirst({ select: { id: true } });
+        merchantId = firstMerchant?.id;
+      }
+    } catch (e) {
+      console.warn("DB not ready, using demo mode");
     }
 
     if (!merchantId) {
-      return NextResponse.json({ error: "No merchants available" }, { status: 404 });
+       // Mock data for demo if DB is empty/missing
+       return NextResponse.json({ status: "success", data: [] });
     }
 
     // 1. Fetch Latest Intents (Matched or Pending) for this merchant
-    const intents = await prisma.paymentIntent.findMany({
-      where: { merchantId },
-      orderBy: { createdAt: "desc" },
-      take: 15,
-      include: { transaction: true },
-    });
+    let intents: any[] = [];
+    try {
+      intents = await prisma.paymentIntent.findMany({
+        where: { merchantId },
+        include: { transaction: true },
+        orderBy: { createdAt: "desc" },
+        take: 10,
+      });
+    } catch (e) {
+      console.warn("Could not fetch activity feed from DB");
+    }
 
     // 2. Fetch Recent Transactions that are NOT linked to an intent (Orphans)
     // NOTE: In multi-tenant mode, we can only show orphans if they belong to the merchant's bot.
