@@ -7,7 +7,7 @@ async function main() {
   const merchantId = "local-dev";
   
   const merchant = await prisma.merchant.upsert({
-    where: { id: merchantId },
+    where: { email: "admin@wavecollect.com" },
     update: {},
     create: {
       id: merchantId,
