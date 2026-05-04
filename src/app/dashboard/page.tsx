@@ -5,10 +5,18 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export default async function DashboardPage() {
-  const session = await getServerSession(authOptions);
-
+  let session = await getServerSession(authOptions);
+  
+  // BYPASS AUTH FOR CLIENT DEMO
   if (!session || !session.user) {
-    redirect("/login");
+    session = {
+      user: {
+        name: "Demo User",
+        email: "merchant@wavecollect.com",
+        role: "MERCHANT",
+        merchantId: "local-dev"
+      }
+    } as any;
   }
 
   const merchantId = session.user.merchantId;
@@ -18,14 +26,23 @@ export default async function DashboardPage() {
   }
 
   // SaaS Optimization: Fetch the merchant linked to the current user
-  const merchant = await prisma.merchant.findUnique({
+  let merchant = await prisma.merchant.findUnique({
     where: { id: merchantId },
     include: {
       _count: { select: { paymentIntents: true, gpayAccounts: true } }
     }
   });
 
-  if (!merchant) return <div className="p-20 text-center font-black text-slate-500 uppercase tracking-widest">Merchant Account Not Found</div>;
+  // FALLBACK FOR DEMO: If specific merchant not found, take the first one available
+  if (!merchant) {
+    merchant = await prisma.merchant.findFirst({
+      include: {
+        _count: { select: { paymentIntents: true, gpayAccounts: true } }
+      }
+    });
+  }
+
+  if (!merchant) return <div className="p-20 text-center font-black text-slate-500 uppercase tracking-widest">No Merchants in Database</div>;
 
   // Fetch initial ledger entries for this merchant
   const ledgerEntries = await prisma.walletLedger.findMany({
