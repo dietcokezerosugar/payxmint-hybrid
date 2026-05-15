@@ -55,7 +55,7 @@ export default function AdminAnalytics() {
     );
   }
 
-  const { stats, charts, topMerchants } = data;
+  const { stats, charts, topMerchants, riskDistribution, vpaHealth, settlements } = data;
   const maxVolume = Math.max(...charts.dailyVolume.map((d: any) => d.amount), 1);
 
   return (
@@ -109,6 +109,99 @@ export default function AdminAnalytics() {
           color="amber"
           subtitle="Verified transactions"
         />
+      </div>
+
+      {/* Phase 5: Risk & Settlement & VPA Health */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* Settlement Flow */}
+        <div className="bg-slate-900 rounded-[32px] p-6 text-white shadow-lg relative overflow-hidden group">
+           <div className="absolute top-0 right-0 w-32 h-32 bg-blue-600/20 blur-[50px] -mr-10 -mt-10 transition-all group-hover:bg-blue-500/30" />
+           <div className="relative z-10 space-y-4">
+              <div className="flex items-center gap-2">
+                <Wallet className="text-blue-400" size={18} />
+                <h3 className="text-xs font-black uppercase tracking-widest text-slate-300">Settlement Custody</h3>
+              </div>
+              <div className="space-y-3">
+                <div className="flex justify-between items-end border-b border-white/10 pb-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Unsettled (T+1)</span>
+                  <span className="text-sm font-black text-amber-400">₹{settlements?.UNSETTLED?.toLocaleString() || 0}</span>
+                </div>
+                <div className="flex justify-between items-end border-b border-white/10 pb-2">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Risk Holds</span>
+                  <span className="text-sm font-black text-rose-400">₹{settlements?.HELD?.toLocaleString() || 0}</span>
+                </div>
+                <div className="flex justify-between items-end">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Released</span>
+                  <span className="text-sm font-black text-emerald-400">₹{settlements?.SETTLED?.toLocaleString() || 0}</span>
+                </div>
+              </div>
+           </div>
+        </div>
+
+        {/* Risk Distribution */}
+        <div className="bg-white rounded-[32px] border border-slate-200 p-6 shadow-sm group hover:border-slate-300 transition-all">
+           <div className="flex items-center gap-2 mb-4">
+              <ShieldCheck className="text-slate-600" size={18} />
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Customer Risk Profile</h3>
+           </div>
+           <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <div className="bg-emerald-500 h-full" style={{ width: `${(riskDistribution?.LOW / (stats.totalSuccessfulTxns || 1)) * 100}%` }} />
+                </div>
+                <div className="text-right min-w-[60px]">
+                  <p className="text-[10px] font-black uppercase text-emerald-600">Low</p>
+                  <p className="text-xs font-black text-slate-900">{riskDistribution?.LOW || 0}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <div className="bg-amber-500 h-full" style={{ width: `${(riskDistribution?.MID / (stats.totalSuccessfulTxns || 1)) * 100}%` }} />
+                </div>
+                <div className="text-right min-w-[60px]">
+                  <p className="text-[10px] font-black uppercase text-amber-600">Mid</p>
+                  <p className="text-xs font-black text-slate-900">{riskDistribution?.MID || 0}</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
+                  <div className="bg-rose-500 h-full" style={{ width: `${(riskDistribution?.HIGH / (stats.totalSuccessfulTxns || 1)) * 100}%` }} />
+                </div>
+                <div className="text-right min-w-[60px]">
+                  <p className="text-[10px] font-black uppercase text-rose-600">High</p>
+                  <p className="text-xs font-black text-slate-900">{riskDistribution?.HIGH || 0}</p>
+                </div>
+              </div>
+           </div>
+        </div>
+
+        {/* VPA Health */}
+        <div className="bg-white rounded-[32px] border border-slate-200 p-6 shadow-sm group hover:border-slate-300 transition-all flex flex-col justify-between">
+           <div className="flex items-center gap-2 mb-4">
+              <Activity className="text-emerald-500" size={18} />
+              <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Global VPA Health</h3>
+           </div>
+           <div className="flex items-end justify-between">
+              <div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Active Accounts</p>
+                <p className="text-2xl font-black text-slate-900">{vpaHealth?.activeAccounts || 0}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Avg Fleet Score</p>
+                <div className="flex items-center gap-2">
+                  <p className={`text-2xl font-black ${vpaHealth?.averageScore < 70 ? 'text-rose-500' : 'text-emerald-500'}`}>
+                    {vpaHealth?.averageScore || 100}
+                  </p>
+                  <span className="text-[10px] text-slate-400 font-bold">/ 100</span>
+                </div>
+              </div>
+           </div>
+           <div className="mt-4 pt-4 border-t border-slate-100">
+             <p className="text-[10px] text-slate-400 font-bold uppercase leading-relaxed">
+               Risk Engine dynamically rotates VPAs dropping below 70 health score.
+             </p>
+           </div>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

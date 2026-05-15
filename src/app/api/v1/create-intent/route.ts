@@ -31,14 +31,14 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    const { amount, order_id, customer_mobile, customer_email, redirect_url } = body;
+    const { amount, order_id, customer_mobile, customer_email, customer_ip, customer_device_id, redirect_url } = body;
 
     // Strict validation
-    if (!amount || isNaN(parseFloat(amount))) {
+    if (!amount || isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
       return NextResponse.json({ 
         status: "failure", 
         error: "INVALID_AMOUNT",
-        message: "Amount is required and must be a positive number." 
+        message: "Amount is required and must be a positive number greater than zero." 
       }, { status: 400 });
     }
 
@@ -55,6 +55,8 @@ export async function POST(req: NextRequest) {
       orderId: String(order_id),
       customerMobile: customer_mobile,
       customerEmail: customer_email,
+      customerIp: customer_ip,
+      customerDeviceId: customer_device_id,
       apiKey,
       redirectUrl: redirect_url,
       ip: ip,

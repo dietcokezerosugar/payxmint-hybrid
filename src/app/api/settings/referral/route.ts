@@ -1,12 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function POST(req: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.merchantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
     const { code } = await req.json();
     if (!code) return NextResponse.json({ error: "Code is required" }, { status: 400 });
 
-    const merchant = await prisma.merchant.findFirst();
+    const merchant = await prisma.merchant.findUnique({ where: { id: session.user.merchantId } });
     if (!merchant) return NextResponse.json({ error: "Merchant not found" }, { status: 404 });
 
     const agent = await prisma.agent.findUnique({

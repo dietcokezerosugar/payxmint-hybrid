@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function GET() {
   try {
-    const merchant = await prisma.merchant.findFirst();
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.merchantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const merchant = await prisma.merchant.findUnique({ where: { id: session.user.merchantId } });
     if (!merchant) return NextResponse.json({ status: "success", data: [] });
 
     // Fallback: If merchantId column is missing due to Prisma sync issue, fetch all logs

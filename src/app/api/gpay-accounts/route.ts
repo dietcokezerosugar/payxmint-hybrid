@@ -7,10 +7,7 @@ export async function GET() {
   const session = await getServerSession(authOptions);
   let merchantId = session?.user?.merchantId;
 
-  if (!merchantId) {
-    const firstMerchant = await prisma.merchant.findFirst({ select: { id: true } });
-    merchantId = firstMerchant?.id;
-  }
+  // Fallback removed for security
 
   if (!merchantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -25,24 +22,9 @@ export async function GET() {
       },
       orderBy: { createdAt: "desc" },
     });
-  } catch (e) {
-    console.warn("GooglePayAccount table missing, using mock");
-  }
-
-  if (accounts.length === 0) {
-    accounts = [{
-      id: "mock-gpay-1",
-      name: "Sonal GPay (Demo)",
-      email: "demo-merchant@gmail.com",
-      upiId: "sonal@okaxis",
-      status: "ACTIVE",
-      monthlyLimit: 1000000,
-      usedAmount: 12500,
-      pm2Status: "online",
-      lastAction: "Sweep completed: Found 3 transactions",
-      lastActionTime: new Date().toLocaleTimeString()
-    }];
-  }
+    } catch (e) {
+      console.error("Could not fetch accounts:", e);
+    }
 
   return NextResponse.json({ status: "success", data: accounts });
 }
@@ -51,17 +33,14 @@ export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   let merchantId = session?.user?.merchantId;
 
-  if (!merchantId) {
-    const firstMerchant = await prisma.merchant.findFirst({ select: { id: true } });
-    merchantId = firstMerchant?.id;
-  }
+  // Fallback removed for security
 
   if (!merchantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = await req.json();
-  const { name, email, upiId, reportId, minTicket, maxTicket } = body;
+  const { name, email, upiId, reportId, minTicket, maxTicket, proxyConfig } = body;
 
   if (!name || !email || !upiId) {
     return NextResponse.json({ status: "failure", message: "name, email, upiId are required" }, { status: 400 });
@@ -81,6 +60,7 @@ export async function POST(req: NextRequest) {
         status: "ACTIVE",
         ...(minTicket !== undefined && { minTicket: parseFloat(minTicket) }),
         ...(maxTicket !== undefined && { maxTicket: parseFloat(maxTicket) }),
+        ...(proxyConfig !== undefined && { proxyConfig }),
       }
     });
     return NextResponse.json({ status: "success", data: updated });
@@ -96,6 +76,7 @@ export async function POST(req: NextRequest) {
       reportId: reportId || null,
       minTicket: minTicket ? parseFloat(minTicket) : 0,
       maxTicket: maxTicket ? parseFloat(maxTicket) : 1000000,
+      proxyConfig: proxyConfig || null,
     },
   });
 
@@ -106,10 +87,7 @@ export async function DELETE(req: NextRequest) {
   const session = await getServerSession(authOptions);
   let merchantId = session?.user?.merchantId;
 
-  if (!merchantId) {
-    const firstMerchant = await prisma.merchant.findFirst({ select: { id: true } });
-    merchantId = firstMerchant?.id;
-  }
+  // Fallback removed for security
 
   if (!merchantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -144,17 +122,14 @@ export async function PUT(req: NextRequest) {
   const session = await getServerSession(authOptions);
   let merchantId = session?.user?.merchantId;
 
-  if (!merchantId) {
-    const firstMerchant = await prisma.merchant.findFirst({ select: { id: true } });
-    merchantId = firstMerchant?.id;
-  }
+  // Fallback removed for security
 
   if (!merchantId) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
   const body = await req.json();
-  const { id, status, monthlyLimit, minTicket, maxTicket } = body;
+  const { id, status, monthlyLimit, minTicket, maxTicket, proxyConfig } = body;
 
   if (!id) {
     return NextResponse.json({ status: "failure", message: "id is required" }, { status: 400 });
@@ -174,6 +149,7 @@ export async function PUT(req: NextRequest) {
   if (monthlyLimit !== undefined) updateData.monthlyLimit = parseFloat(monthlyLimit);
   if (minTicket !== undefined) updateData.minTicket = parseFloat(minTicket);
   if (maxTicket !== undefined) updateData.maxTicket = parseFloat(maxTicket);
+  if (proxyConfig !== undefined) updateData.proxyConfig = proxyConfig;
 
   const account = await prisma.googlePayAccount.update({
     where: { id },

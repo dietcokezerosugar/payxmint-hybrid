@@ -10,7 +10,8 @@ export async function validateIpWhitelist(merchantId: string, ip: string): Promi
     select: { ipWhitelist: true },
   });
 
-  if (!merchant || !merchant.ipWhitelist) return false;
+  // No whitelist configured = unrestricted access
+  if (!merchant || !merchant.ipWhitelist || merchant.ipWhitelist.trim() === "") return true;
 
   const allowedIps = merchant.ipWhitelist.split(",").map((i) => i.trim());
   

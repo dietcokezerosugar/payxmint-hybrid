@@ -27,7 +27,7 @@ export class NotificationService {
   static async notifyTransactionSuccess(merchantId: string, amount: number, referenceId: string, utr?: string) {
     const merchant = await prisma.merchant.findUnique({
       where: { id: merchantId },
-      select: { name: true, phone: true } // Assuming phone might be used for chat_id or we add a specific telegram_id field
+      select: { name: true, phone: true, telegramChatId: true, telegramBotToken: true }
     });
 
     if (!merchant) return;
@@ -43,8 +43,23 @@ export class NotificationService {
 ────────────────────
 <i>Wave Collect SaaS Engine</i>`;
 
-    // In production, we'll fetch the merchant's specific chat_id from the DB
-    // For now, we'll use a global admin log chat if available
+    // Send to merchant's own Telegram if configured
+    if (merchant.telegramChatId) {
+      const botToken = merchant.telegramBotToken || this.BOT_TOKEN;
+      if (botToken) {
+        try {
+          await axios.post(`https://api.telegram.org/bot${botToken}/sendMessage`, {
+            chat_id: merchant.telegramChatId,
+            text: message,
+            parse_mode: "HTML",
+          });
+        } catch (error: any) {
+          console.error("[NOTIFICATION_ERROR] Merchant Telegram Send Failed:", error.message);
+        }
+      }
+    }
+
+    // Also notify admin channel
     if (process.env.ADMIN_TELEGRAM_CHAT_ID) {
         await this.sendTelegram(process.env.ADMIN_TELEGRAM_CHAT_ID, message);
     }

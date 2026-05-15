@@ -1,10 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 export async function GET() {
-  const merchant = await prisma.merchant.findFirst({
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.merchantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const merchant = await prisma.merchant.findUnique({
+    where: { id: session.user.merchantId },
     select: { 
       webhookUrl: true, 
+      webhookSecret: true,
       redirectUrl: true, 
       telegramBotToken: true, 
       telegramChatId: true, 
@@ -12,18 +19,47 @@ export async function GET() {
       apiAccessStatus: true,
       ipWhitelist: true,
       agent: true,
-      trialEndsAt: true
+      trialEndsAt: true,
+      brandColor: true,
+      brandLogo: true,
+      brandName: true,
+      showSupportEmail: true,
     },
   });
   return NextResponse.json({ status: "success", data: merchant });
 }
 
 export async function POST(req: NextRequest) {
-  const merchant = await prisma.merchant.findFirst();
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.merchantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const merchant = await prisma.merchant.findUnique({ where: { id: session.user.merchantId } });
   if (!merchant) return NextResponse.json({ status: "failure", message: "No merchant found" }, { status: 404 });
 
   const body = await req.json();
-  const { webhookUrl, redirectUrl, telegramBotToken, telegramChatId, webhookWhitelist, ipWhitelist, referralCode } = body;
+  const { 
+    action, 
+    webhookUrl, 
+    redirectUrl, 
+    telegramBotToken, 
+    telegramChatId, 
+    webhookWhitelist, 
+    ipWhitelist, 
+    referralCode,
+    brandColor,
+    brandLogo,
+    brandName,
+    showSupportEmail
+  } = body;
+
+  if (action === "ROTATE_SECRET") {
+    const crypto = require("crypto");
+    const newSecret = crypto.randomBytes(16).toString("hex");
+    await prisma.merchant.update({
+      where: { id: merchant.id },
+      data: { webhookSecret: newSecret }
+    });
+    return NextResponse.json({ status: "success", secret: newSecret });
+  }
 
   // Handle Agent Referral Linking
   let agentIdUpdate = {};
@@ -45,6 +81,10 @@ export async function POST(req: NextRequest) {
       ...(telegramChatId !== undefined && { telegramChatId }),
       ...(webhookWhitelist !== undefined && { webhookWhitelist }),
       ...(ipWhitelist !== undefined && { ipWhitelist }),
+      ...(brandColor !== undefined && { brandColor }),
+      ...(brandLogo !== undefined && { brandLogo }),
+      ...(brandName !== undefined && { brandName }),
+      ...(showSupportEmail !== undefined && { showSupportEmail }),
       ...agentIdUpdate
     },
   });

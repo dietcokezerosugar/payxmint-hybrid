@@ -16,7 +16,9 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
     return new NextResponse("Payment not found", { status: 404 });
   }
 
-  const merchantName = intent.merchant.businessName || intent.merchant.name;
+  const merchantName = intent.merchant.brandName || intent.merchant.businessName || intent.merchant.name;
+  const brandColor = intent.merchant.brandColor || "#4338ca";
+  const brandLogo = intent.merchant.brandLogo;
   const amount = intent.amount;
   const referenceId = intent.referenceId;
   const upiDeepLink = intent.upiDeepLink || "";
@@ -46,24 +48,25 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ toke
 <title>Pay ₹${amount} | ${merchantName}</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#4338ca;color:#fff;min-height:100dvh;display:flex;flex-direction:column}
-.hdr{padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;background:#4338ca}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:${brandColor};color:#fff;min-height:100dvh;display:flex;flex-direction:column}
+.hdr{padding:12px 20px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:10;background:${brandColor}}
 .hdr-left{display:flex;align-items:center;gap:10px}
-.logo{width:32px;height:32px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px}
-.hdr-label{font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#a5b4fc}
+.logo{width:32px;height:32px;background:rgba(255,255,255,.15);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;overflow:hidden}
+.logo img{width:100%;height:100%;object-fit:cover}
+.hdr-label{font-size:8px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:rgba(255,255,255,.6)}
 .hdr-name{font-size:14px;font-weight:700}
 .timer{font-size:13px;font-weight:800;padding:6px 14px;border-radius:12px;font-family:monospace;background:rgba(255,255,255,.1)}
 .timer.urgent{background:rgba(239,68,68,.25);color:#fca5a5}
 .progress{width:100%;height:2px;background:rgba(0,0,0,.2)}
 .progress-bar{height:100%;background:#34d399;transition:width 1s linear}
-.amt{text-align:center;padding:16px 20px 32px;background:#4338ca}
+.amt{text-align:center;padding:16px 20px 32px;background:${brandColor}}
 .amt h1{font-size:42px;font-weight:900;display:flex;align-items:baseline;justify-content:center}
 .amt h1 span{font-size:18px;opacity:.6;margin-right:2px}
-.amt p{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:3px;color:rgba(165,180,252,.6);margin-top:8px}
+.amt p{font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:3px;color:rgba(255,255,255,.6);margin-top:8px}
 .card{flex:1;background:#fff;border-radius:28px 28px 0 0;margin-top:-16px;display:flex;flex-direction:column;color:#0f172a;overflow:hidden}
 .tabs{display:flex;gap:4px;margin:20px 20px 0;padding:4px;background:#f1f5f9;border-radius:16px}
 .tab{flex:1;border:none;padding:10px 8px;border-radius:12px;font-weight:800;font-size:11px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;background:transparent;color:#94a3b8;transition:.2s}
-.tab.active{background:#fff;color:#4338ca;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+.tab.active{background:#fff;color:${brandColor};box-shadow:0 2px 8px rgba(0,0,0,.06)}
 .content{flex:1;padding:20px;overflow-y:auto}
 .tab-panel{display:none}
 .tab-panel.active{display:block}
@@ -93,8 +96,8 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#4338c
 #successOverlay{display:none;position:fixed;inset:0;z-index:100;background:rgba(15,23,42,.85);align-items:center;justify-content:center;padding:16px}
 #successOverlay.show{display:flex}
 .success-card{max-width:380px;width:100%;background:#fff;border-radius:36px;padding:24px;text-align:center;box-shadow:0 24px 64px rgba(0,0,0,.15);position:relative;overflow:hidden;color:#0f172a}
-.success-card .top-bar{position:absolute;top:0;left:0;right:0;height:4px;background:#10b981}
-.success-check{width:80px;height:80px;background:#10b981;color:#fff;border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:900;margin:16px auto 20px;box-shadow:0 8px 24px rgba(16,185,129,.25)}
+.success-card .top-bar{position:absolute;top:0;left:0;right:0;height:4px;background:${brandColor}}
+.success-check{width:80px;height:80px;background:${brandColor};color:#fff;border-radius:24px;display:flex;align-items:center;justify-content:center;font-size:40px;font-weight:900;margin:16px auto 20px;box-shadow:0 8px 24px rgba(16,185,129,.25)}
 #expiredView{display:none;min-height:100dvh;align-items:center;justify-content:center;background:#f8fafc;padding:16px}
 #expiredView.show{display:flex}
 .expired-card{max-width:400px;background:#fff;border-radius:28px;padding:40px 24px;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.06);color:#0f172a}
@@ -104,7 +107,9 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#4338c
 <div id="mainView">
   <div class="hdr">
     <div class="hdr-left">
-      <div class="logo">⚡</div>
+      <div class="logo">
+        ${brandLogo ? `<img src="${brandLogo}" alt="Logo">` : '⚡'}
+      </div>
       <div><p class="hdr-label">Paying To</p><p class="hdr-name">${merchantName}</p></div>
     </div>
     <div class="timer" id="timerChip">⏱ <span id="countdown">--:--</span></div>
@@ -176,7 +181,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;background:#4338c
       <p style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#94a3b8">UTR</p>
       <p id="utrDisplay" style="font-weight:700;font-size:12px;color:#10b981;font-family:monospace;margin-bottom:10px">Verified</p>
       <p style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:2px;color:#94a3b8">Status</p>
-      <p style="font-weight:700;font-size:12px;color:#10b981">✅ Approved</p>
+      <p style="font-weight:700;font-size:12px;color:${brandColor}">✅ Approved</p>
     </div>
     <p style="color:#94a3b8;font-size:12px;margin-top:16px">Auto-redirecting...</p>
   </div>

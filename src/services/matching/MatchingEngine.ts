@@ -3,6 +3,8 @@ import { logApi } from "@/lib/log";
 import axios from "axios";
 import { WalletService } from "../wallet/WalletService";
 import { NotificationService } from "../notifications/NotificationService";
+import { WebhookService } from "../webhook/WebhookService";
+import { GatewayRouter } from "../routing/GatewayRouter";
 
 export class MatchingEngine {
   /**
@@ -84,14 +86,48 @@ export class MatchingEngine {
           },
         });
 
+        // ── RISK ENGINE: Auto-Graduation ─────────────────────────────────
+        let currentCustomerRiskTier = "HIGH";
+        if (intent.customerId) {
+          const updatedCustomer = await tx.customer.update({
+            where: { id: intent.customerId },
+            data: {
+              successfulTxnCount: { increment: 1 },
+              totalVolume: { increment: txn.amount },
+              isFTD: false,
+              lastTxnAt: new Date(),
+            }
+          });
+
+          // Graduation Logic: High → Mid at 26 txns, Mid → Low at 51
+          let newTier = updatedCustomer.riskTier;
+          if (updatedCustomer.successfulTxnCount >= 51) {
+            newTier = "LOW";
+          } else if (updatedCustomer.successfulTxnCount >= 26) {
+            newTier = "MID";
+          }
+
+          if (newTier !== updatedCustomer.riskTier) {
+            await tx.customer.update({
+              where: { id: updatedCustomer.id },
+              data: { riskTier: newTier }
+            });
+            await logApi("INFO", `Customer graduated to ${newTier} risk tier`, intent.merchantId, { customerId: updatedCustomer.id, count: updatedCustomer.successfulTxnCount });
+          }
+          
+          // Use the CURRENT (possibly graduated) tier for settlement decisions
+          currentCustomerRiskTier = newTier;
+        }
+
         // Update API key usage
         await tx.apiKey.update({
           where: { id: intent.apiKeyId },
           data: { usedAmount: { increment: txn.amount } },
         });
 
-        // SaaS: Process Wallet (Recharge vs Fee)
+        // SaaS: Process Settlement Lifecycle
         if (intent.isRecharge) {
+          // Recharges still directly credit the pre-paid wallet if someone is using it
           await WalletService.credit(
             intent.merchantId,
             txn.amount,
@@ -101,17 +137,22 @@ export class MatchingEngine {
             tx
           );
         } else {
-          const fee = (txn.amount * intent.merchant.commissionRate) / 100;
-          if (fee > 0) {
-            await WalletService.debit(
-              intent.merchantId,
-              fee,
-              `Fee for Txn ${intent.referenceId} (${intent.merchant.commissionRate}%)`,
-              "TRANSACTION",
-              intent.id,
-              tx // Pass transaction client!
-            );
-          }
+          // Settlement Custody Shift
+          // Uses the FRESH risk tier (after graduation) for accurate hold decisions
+          const isHighRisk = currentCustomerRiskTier === "HIGH";
+          
+          await tx.settlement.create({
+            data: {
+              merchantId: intent.merchantId,
+              totalAmount: txn.amount,
+              holdAmount: isHighRisk ? txn.amount : 0,
+              releasedAmount: 0,
+              status: isHighRisk ? "HELD" : "UNSETTLED",
+            }
+          });
+          
+          // Note: The agent commission log from WalletService.debit is bypassed here.
+          // In a custody model, agent commissions are calculated during the Settlement Release batch.
         }
 
         return intent;
@@ -132,6 +173,21 @@ export class MatchingEngine {
         payer: txn.payerName,
       });
 
+      // ── BUG FIX: Update VPA usage counters (daily/weekly/monthly + txn count) ──
+      // Find which GPay account was used via the UPI deep link
+      if (intent.upiDeepLink) {
+        const upiMatch = intent.upiDeepLink.match(/pa=([^&]+)/);
+        if (upiMatch) {
+          const usedUpi = decodeURIComponent(upiMatch[1]);
+          const gpayAccount = await prisma.googlePayAccount.findFirst({
+            where: { upiId: usedUpi, merchantId: intent.merchantId }
+          });
+          if (gpayAccount) {
+            await GatewayRouter.recordUsage(gpayAccount.id, txn.amount);
+          }
+        }
+      }
+
       // ── SaaS: Trigger Notifications ──────────────────────────────────
       NotificationService.notifyTransactionSuccess(
         intent.merchantId,
@@ -140,23 +196,18 @@ export class MatchingEngine {
         newTxn.utr || undefined
       ).catch(e => console.error("[NOTIFY_ERR]", e.message));
 
-      // ── 5. Trigger webhook (async, non-blocking) ─────────────────────
+      // ── 5. Trigger webhook (async, non-blocking via Queue) ───────────
       if (intent.merchant.webhookUrl) {
-        import("../notifications/WebhookService").then(({ WebhookService }) => {
-          WebhookService.dispatch(intent.merchantId, intent.merchant.webhookUrl!, {
-            event: "payment.success",
-            status: "SUCCESS",
-            amount: intent.amount,
-            txn_id: newTxn.externalId,
-            reference_id: intent.referenceId,
-            utr: newTxn.utr,
-            payer_name: txn.payerName,
-            payer_upi: txn.payerUpiId,
-            timestamp: new Date().toISOString(),
-          });
-        }).catch((err) =>
-          logApi("ERROR", "Webhook dispatch failed", intent.merchantId, { intentId: intent.id, error: err.message })
-        );
+        WebhookService.queueEvent(intent.merchantId, "payment.success", {
+          event: "payment.success",
+          status: "SUCCESS",
+          order_id: intent.referenceId,
+          amount: txn.amount,
+          utr: newTxn.utr,
+          payer_name: txn.payerName,
+          payer_upi: txn.payerUpiId || null,
+          timestamp: new Date().toISOString(),
+        }).catch(e => console.error("[WEBHOOK_QUEUE_ERR]", e.message));
       }
     } catch (e: any) {
       logApi("ERROR", "Matching engine error", undefined, { txnId: txn.externalId, error: e.message });

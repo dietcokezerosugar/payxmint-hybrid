@@ -1,13 +1,17 @@
-const { chromium } = require('playwright');
+const { chromium } = require('playwright-extra');
+const stealth = require('puppeteer-extra-plugin-stealth')();
+chromium.use(stealth);
 const path = require('path');
 const fs = require('fs');
+const axios = require('axios');
 
 const ACCOUNT_NAME = process.argv[2];
 const EMAIL = process.argv[3];
 const PASSWORD = process.argv[4];
+const PROXY_CONFIG = process.argv[5];
 
 if (!ACCOUNT_NAME || !EMAIL || !PASSWORD) {
-    console.error("[ERROR] Missing arguments. Usage: node auto-login.js <name> <email> <password>");
+    console.error("[ERROR] Missing arguments. Usage: node auto-login.js <name> <email> <password> [proxy]");
     process.exit(1);
 }
 
@@ -24,7 +28,7 @@ async function run() {
     // Launch Playwright headful but we don't strictly need to be visible. 
     // However, Google login is less likely to block if it's a standard headful browser
     const chromePath = chromium.executablePath();
-    const context = await chromium.launchPersistentContext(SESSION_DIR, {
+    const launchOptions = {
         headless: true,
         executablePath: chromePath,
         args: [
@@ -35,7 +39,19 @@ async function run() {
         ],
         ignoreDefaultArgs: ['--enable-automation'],
         viewport: { width: 1280, height: 800 }
-    });
+    };
+
+    if (PROXY_CONFIG && PROXY_CONFIG.length > 5) {
+        log(`Using Proxy: ${PROXY_CONFIG}`);
+        const proxyUrl = new URL(PROXY_CONFIG.startsWith('http') ? PROXY_CONFIG : `http://${PROXY_CONFIG}`);
+        launchOptions.proxy = { server: `${proxyUrl.protocol}//${proxyUrl.hostname}:${proxyUrl.port}` };
+        if (proxyUrl.username) {
+            launchOptions.proxy.username = proxyUrl.username;
+            launchOptions.proxy.password = proxyUrl.password;
+        }
+    }
+
+    const context = await chromium.launchPersistentContext(SESSION_DIR, launchOptions);
 
     const page = await context.newPage();
     
@@ -81,22 +97,40 @@ async function run() {
         }
 
         // Email
-        const emailInput = await page.$('input[type="email"]');
+        const emailInput = await page.$('input[type="email"], input#identifierId, input[name="identifier"]');
         if (emailInput && await emailInput.isVisible()) {
             log(`Auth: Email...`);
-            await emailInput.fill(EMAIL);
-            await page.keyboard.press('Enter');
-            await page.waitForTimeout(2000);
+            await emailInput.focus();
+            await page.waitForTimeout(800 + Math.random() * 500);
+            await page.keyboard.type(EMAIL, { delay: 100 + Math.random() * 100 });
+            await page.waitForTimeout(1000 + Math.random() * 1000);
+            
+            const nextBtns = await page.$$('button:has-text("Next"), span:has-text("Next"), button:has-text("Continue"), span:has-text("Continue")');
+            if (nextBtns.length > 0) {
+                await nextBtns[0].click();
+            } else {
+                await page.keyboard.press('Enter');
+            }
+            await page.waitForTimeout(3000 + Math.random() * 1000);
             continue;
         }
 
         // Password
-        const passInput = await page.$('input[type="password"]');
+        const passInput = await page.$('input[type="password"], input[name="Passwd"]');
         if (passInput && await passInput.isVisible()) {
             log(`Auth: Password...`);
-            await passInput.fill(PASSWORD);
-            await page.keyboard.press('Enter');
-            await page.waitForTimeout(3000);
+            await passInput.focus();
+            await page.waitForTimeout(800 + Math.random() * 500);
+            await page.keyboard.type(PASSWORD, { delay: 100 + Math.random() * 100 });
+            await page.waitForTimeout(1000 + Math.random() * 1000);
+            
+            const nextBtns = await page.$$('button:has-text("Next"), span:has-text("Next"), button:has-text("Continue"), span:has-text("Continue")');
+            if (nextBtns.length > 0) {
+                await nextBtns[0].click();
+            } else {
+                await page.keyboard.press('Enter');
+            }
+            await page.waitForTimeout(4000 + Math.random() * 2000);
             continue;
         }
 
@@ -116,8 +150,66 @@ async function run() {
         if (clicked) continue;
 
         if (await page.getByText('2-Step Verification').count() > 0 || 
-            await page.getByText('Verify it’s you').count() > 0) {
-            log(`[WARNING] Manual verification required.`);
+            await page.getByText('Verify it\'s you').count() > 0 ||
+            await page.getByText('Verify it’s you').count() > 0 ||
+            await page.getByText('Confirm your recovery email').count() > 0 ||
+            await page.getByText('Confirm your phone number').count() > 0 ||
+            await page.getByText('Protect your account').count() > 0 ||
+            await page.getByText('Add recovery phone').count() > 0 ||
+            await page.getByText('Enter code').count() > 0) {
+            
+            const vpsUrl = process.env.VPS_URL || process.env.HUB_URL || 'http://localhost:3000';
+            const botSecret = process.env.BOT_SECRET || process.env.BOT_SYSTEM_SECRET || 'wave_collect_bridge_secret_998877';
+
+            log(`[WARNING] Security checkpoint reached (2FA/Recovery). Requesting OTP from Dashboard...`);
+            
+            try {
+                await axios.post(`${vpsUrl}/api/bots/control`, {
+                    action: "waiting_otp",
+                    name: ACCOUNT_NAME
+                }, { 
+                    headers: { "x-bot-secret": botSecret },
+                    timeout: 10000
+                });
+            } catch(e) {}
+
+            let otpReceived = null;
+            for (let i = 0; i < 60; i++) { // Wait up to 5 minutes
+                await page.waitForTimeout(5000);
+                try {
+                    const res = await axios.post(`${vpsUrl}/api/bots/bridge`, { action: "sync" }, { 
+                        headers: { "x-bot-secret": botSecret },
+                        timeout: 10000
+                    });
+                    const acc = res.data.accounts.find(a => a.name === ACCOUNT_NAME);
+                    if (acc && acc.desiredStatus === "OTP_READY" && acc.otpCode) {
+                        otpReceived = acc.otpCode;
+                        break;
+                    }
+                } catch(e) {}
+            }
+
+            if (otpReceived) {
+                log(`[SUCCESS] Received OTP from Dashboard: ${otpReceived}`);
+                // Try to find the generic OTP or text input field
+                const otpInput = await page.$('input[type="tel"], input[name="Pin"], input[autocomplete="one-time-code"], input[type="text"], input[type="email"]');
+                if (otpInput) {
+                    await otpInput.focus();
+                    await page.waitForTimeout(500);
+                    await page.keyboard.type(otpReceived, { delay: 100 + Math.random() * 100 });
+                    await page.waitForTimeout(1000);
+                    const nextBtns = await page.$$('button:has-text("Next"), span:has-text("Next"), button:has-text("Continue"), span:has-text("Continue")');
+                    if (nextBtns.length > 0) {
+                        await nextBtns[0].click();
+                    } else {
+                        await page.keyboard.press('Enter');
+                    }
+                    await page.waitForTimeout(5000);
+                    continue; // Re-evaluate URL after submitting OTP
+                }
+            }
+            
+            log(`[ERROR] Timed out waiting for OTP or could not find input field.`);
             break;
         }
     }

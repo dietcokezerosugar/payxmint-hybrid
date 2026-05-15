@@ -8,10 +8,14 @@ import {
   Zap, 
   TrendingUp, 
   AlertCircle,
-  Clock
+  Clock,
+  LogOut,
+  ShieldCheck
 } from "lucide-react";
+import { signOut, useSession } from "next-auth/react";
 
 export default function AdminDashboard() {
+  const { data: session } = useSession();
   const [stats, setStats] = useState<any>({
     totalVolume: 0,
     totalTxns: 0,
@@ -54,9 +58,18 @@ export default function AdminDashboard() {
              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-ping" />
           </div>
         </div>
-        <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-200 shadow-sm w-fit">
-          <Clock className="w-4 h-4 text-blue-600" />
-          <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">LIVE: {new Date().toLocaleTimeString()}</span>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 px-4 py-2 bg-slate-50 rounded-xl border border-slate-200 shadow-sm w-fit">
+            <Clock className="w-4 h-4 text-blue-600" />
+            <span className="text-[11px] font-black text-slate-600 uppercase tracking-widest">LIVE: {new Date().toLocaleTimeString()}</span>
+          </div>
+          <button 
+            onClick={() => signOut({ callbackUrl: "/" })}
+            className="p-2.5 bg-rose-50 text-rose-600 rounded-xl border border-rose-100 hover:bg-rose-100 transition-all shadow-sm group"
+            title="Sign Out"
+          >
+            <LogOut size={18} className="group-hover:scale-110 transition-transform" />
+          </button>
         </div>
       </div>
 
@@ -111,9 +124,10 @@ export default function AdminDashboard() {
             </h3>
           </div>
           <div className="space-y-3">
-             <AlertItem type="WARNING" msg="GPay-7 limit reached for Merchant: Sudarshan" time="2m ago" />
-             <AlertItem type="DANGER" msg="Session expired for pine-labs-01" time="15m ago" />
-             <AlertItem type="INFO" msg="New recharge request: ₹50,000 from Elite Retailers" time="1h ago" />
+             <div className="flex flex-col items-center justify-center py-10 text-center opacity-40">
+                <ShieldCheck size={32} className="mb-2" />
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">All systems operational</p>
+             </div>
           </div>
         </div>
       </div>

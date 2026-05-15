@@ -8,14 +8,8 @@ export async function GET() {
     let session = await getServerSession(authOptions);
     let merchantId = session?.user?.merchantId;
 
-    try {
-      if (!merchantId) {
-        // DEMO FALLBACK: Use the first merchant in the database
-        const firstMerchant = await prisma.merchant.findFirst({ select: { id: true } });
-        merchantId = firstMerchant?.id;
-      }
-    } catch (e) {
-      console.warn("DB not ready, using demo mode");
+    if (!merchantId) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!merchantId) {

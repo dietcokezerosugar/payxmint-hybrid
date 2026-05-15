@@ -13,11 +13,14 @@ import {
   Clock,
   CheckCircle2,
   RefreshCw,
-  ShieldAlert
+  ShieldAlert,
+  LogOut
 } from "lucide-react";
 import Link from "next/link";
+import { signOut, useSession } from "next-auth/react";
 
 export default function DashboardClient({ initialMerchant, initialLedgerEntries }: any) {
+  const { data: session } = useSession();
   const [merchant, setMerchant] = useState(initialMerchant);
   const [ledgerEntries, setLedgerEntries] = useState(initialLedgerEntries);
   const [recentIntents, setRecentIntents] = useState<any[]>([]);
@@ -94,10 +97,18 @@ export default function DashboardClient({ initialMerchant, initialLedgerEntries 
           <h1 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tight flex items-center gap-3">
              <LayoutDashboard className="text-blue-600" /> Command Center
           </h1>
-          <div className="flex items-center gap-2 mt-1">
+          <div className="flex items-center gap-3 mt-1">
              <p className="text-slate-500 font-bold text-[11px] uppercase tracking-widest leading-none">Merchant: {merchant.name}</p>
              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
              <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none">Live Monitoring</span>
+             <div className="h-4 w-[1px] bg-slate-200 mx-2" />
+             <button 
+               onClick={() => signOut({ callbackUrl: "/" })}
+               className="flex items-center gap-2 text-[10px] font-black text-slate-400 hover:text-rose-600 transition-colors uppercase tracking-widest"
+             >
+               <LogOut size={12} />
+               Log Out
+             </button>
           </div>
         </div>
         <div className="flex items-center gap-3">

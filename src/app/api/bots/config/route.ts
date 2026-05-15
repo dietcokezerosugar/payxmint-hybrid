@@ -29,7 +29,8 @@ export async function GET(req: NextRequest) {
         report_id: account.reportId,
         email: account.email,
         download_interval_sec: 40,
-        // We could also return encrypted password here if needed for auto-login
+        proxyConfig: account.proxyConfig,
+        password: account.botPassword,
       }
     });
   } catch (error: any) {

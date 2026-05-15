@@ -1,5 +1,7 @@
 const express = require('express');
-const { chromium } = require('playwright');
+const { chromium } = require('playwright-extra');
+const stealth = require('puppeteer-extra-plugin-stealth')();
+chromium.use(stealth);
 const path = require('path');
 const fs = require('fs');
 const axios = require('axios');
@@ -25,7 +27,7 @@ let enginePage = null;
 let engineRunning = false;
 let isInitialLoad = true;
 const knownTransactions = new Set();
-const MAX_KNOWN_TRANSACTIONS = 2000;
+const MAX_KNOWN_TRANSACTIONS = 100000; // Hardened for 10k TPM (covers ~10 hours of unique IDs)
 
 const startTime = new Date();
 let lastBootTime = new Date();
@@ -124,9 +126,11 @@ async function syncToHub(rows, engine) {
         });
         log(`[${engine}] Synced ${rows.length} rows → Hub`);
         webhookStats.success++;
+        return true;
     } catch (e) {
         log(`[${engine}] Hub sync failed: ${e.message}`);
         webhookStats.failure++;
+        return false;
     }
 }
 
@@ -135,10 +139,10 @@ function trackTransactions(payload) {
         const id = trx.merchantTransactionId || trx.externalId;
         if (id) knownTransactions.add(id);
     }
-    // Memory Hardening: Sliding window for IDs
+    // Memory Hardening: Sliding window for IDs (Scale: 100k)
     if (knownTransactions.size > MAX_KNOWN_TRANSACTIONS) {
         const it = knownTransactions.values();
-        for (let i = 0; i < 500; i++) {
+        for (let i = 0; i < 10000; i++) { // Purge 10k at a time
             const val = it.next().value;
             if (val) knownTransactions.delete(val);
         }
@@ -147,20 +151,28 @@ function trackTransactions(payload) {
 
 async function processEngineA(payload) {
     if (!payload || payload.length === 0) return;
-    const exportRows = payload.map(trx => normalizeFromXHR(trx));
     const newOnes = payload.filter(t => !knownTransactions.has(t.merchantTransactionId));
     
-    trackTransactions(payload);
-
     if (newOnes.length > 0) {
-        await syncToHub(exportRows, 'ENGINE-A');
-        statsEngineA.captured += newOnes.length;
-        statsEngineA.lastCapture = new Date().toISOString();
-        for (const trx of newOnes) {
-            log(`[ENGINE-A] ⚡ NEW: ₹${trx.amount} | ${trx.payerName} | ${trx.note}`);
+        const exportRows = newOnes.map(trx => normalizeFromXHR(trx));
+        
+        const success = await syncToHub(exportRows, 'ENGINE-A');
+        if (success) {
+            trackTransactions(newOnes); // Mark as known only after successful sync
+            statsEngineA.captured += newOnes.length;
+            statsEngineA.lastCapture = new Date().toISOString();
+            
+            if (newOnes.length < 5) {
+                for (const trx of newOnes) {
+                    log(`[ENGINE-A] ⚡ NEW: ₹${trx.amount} | ${trx.payerName} | ${trx.note}`);
+                }
+            } else {
+                log(`[ENGINE-A] ⚡ Captured ${newOnes.length} new transactions in this sweep.`);
+            }
         }
     } else if (isInitialLoad) {
-        log(`[ENGINE-A] Initial load complete. Tracking ${exportRows.length} historical txns.`);
+        trackTransactions(payload);
+        log(`[ENGINE-A] Initial load complete. Tracking ${payload.length} historical txns.`);
     }
     isInitialLoad = false;
 }
@@ -259,8 +271,8 @@ async function runDualPollingLoop() {
     const memUsage = process.memoryUsage().heapUsed / 1024 / 1024;
     const uptimeHrs = (new Date() - lastBootTime) / 1000 / 60 / 60;
 
-    if (memUsage > 500 || uptimeHrs > 6) {
-        const reason = memUsage > 500 ? `Memory threshold exceeded (${Math.round(memUsage)}MB)` : 'Scheduled 6-hour refresh';
+    if (memUsage > 1024 || uptimeHrs > 12) {
+        const reason = memUsage > 1024 ? `Memory threshold exceeded (${Math.round(memUsage)}MB)` : 'Scheduled 12-hour refresh';
         log(`[STABILITY] 🔄 ${reason}. Restarting browser context...`);
         try { if (engineContext) await engineContext.close(); } catch(e) {}
         engineContext = null; enginePage = null;
@@ -313,17 +325,48 @@ async function bootEngine() {
         const lockPath = path.join(SESSION_DIR, 'SingletonLock');
         if (fs.existsSync(lockPath)) fs.unlinkSync(lockPath);
 
-        const chromePath = require('playwright').chromium.executablePath();
-        engineContext = await chromium.launchPersistentContext(SESSION_DIR, {
+        const chromePath = chromium.executablePath();
+        const launchOptions = {
             headless: true,
             executablePath: chromePath,
             acceptDownloads: true,
             downloadsPath: DOWNLOAD_DIR,
             args: ['--disable-blink-features=AutomationControlled', '--no-sandbox']
-        });
+        };
+
+        if (accountConfig.proxyConfig && accountConfig.proxyConfig.length > 5) {
+            log(`[SYSTEM] Routing through Proxy: ${accountConfig.proxyConfig}`);
+            const proxyUrl = new URL(accountConfig.proxyConfig.startsWith('http') ? accountConfig.proxyConfig : `http://${accountConfig.proxyConfig}`);
+            launchOptions.proxy = { server: `${proxyUrl.protocol}//${proxyUrl.hostname}:${proxyUrl.port}` };
+            if (proxyUrl.username) {
+                launchOptions.proxy.username = proxyUrl.username;
+                launchOptions.proxy.password = proxyUrl.password;
+            }
+        }
+
+        engineContext = await chromium.launchPersistentContext(SESSION_DIR, launchOptions);
 
         enginePage = await engineContext.newPage();
         
+        // ⚡ ENGINE-A HIGH-PERFORMANCE INTERCEPTOR (10k TPM Capable)
+        enginePage.on('response', async (response) => {
+            const url = response.url();
+            if (url.includes('batchexecute') && response.request().method() === 'POST') {
+                try {
+                    const postData = response.request().postData();
+                    if (postData && postData.includes('RPtkab')) {
+                        const text = await response.text();
+                        const captured = parseTransactions(text);
+                        if (captured && captured.length > 0) {
+                            await processEngineA(captured);
+                        }
+                    }
+                } catch (e) {
+                    // Silently ignore binary/lock errors on non-target packets
+                }
+            }
+        });
+
         log(`[SYSTEM] Navigating to Merchant Portal...`);
         await enginePage.goto(merchantUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
         
@@ -337,12 +380,15 @@ async function bootEngine() {
             const loginScript = path.join(__dirname, 'auto-login.js');
             // Fetch credentials from config or env
             const res = await axios.get(`${HUB_URL}/api/bots/config?name=${encodeURIComponent(ACCOUNT_NAME)}`, {
-                headers: { "x-bot-secret": BOT_SECRET }
+                headers: { "x-bot-secret": BOT_SECRET },
+                timeout: 10000
             });
             const creds = res.data.data;
             
             if (creds && creds.email && creds.password) {
-                spawnSync('node', [loginScript, ACCOUNT_NAME, creds.email, creds.password]);
+                spawnSync('node', [loginScript, ACCOUNT_NAME, creds.email, creds.password], {
+                    env: { ...process.env, VPS_URL: HUB_URL, BOT_SECRET: BOT_SECRET }
+                });
                 log(`[SUCCESS] Self-healing complete. Retrying boot...`);
                 return await bootEngine(); // Retry boot after login
             } else {

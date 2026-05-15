@@ -5,10 +5,16 @@ import {
   Users, 
   Smartphone, 
   CreditCard, 
-  ShieldCheck, 
   BarChart3,
   LogOut,
-  Settings
+  Settings,
+  Calculator,
+  ShieldCheck,
+  ShieldAlert,
+  Wallet,
+  RefreshCcw,
+  Webhook,
+  Terminal
 } from "lucide-react";
 
 export default function AdminLayout({
@@ -34,10 +40,16 @@ export default function AdminLayout({
           <AdminNavLink href="/admin/merchants" icon={<Users size={16} />} label="Merchants & IPs" />
           <AdminNavLink href="/admin/ip-whitelist" icon={<ShieldCheck size={16} />} label="IP Whitelist" />
           <AdminNavLink href="/admin/gateways" icon={<Smartphone size={16} />} label="Global Fleet" />
+          <AdminNavLink href="/admin/customers" icon={<ShieldAlert size={16} />} label="Risk Entities" />
           <AdminNavLink href="/admin/staff" icon={<ShieldCheck size={16} />} label="Staff Hub" />
           <AdminNavLink href="/admin/transactions" icon={<CreditCard size={16} />} label="Transactions" />
+          <AdminNavLink href="/admin/settlements" icon={<Wallet size={16} />} label="Settlement Custody" />
+          <AdminNavLink href="/admin/reconciliation" icon={<RefreshCcw size={16} />} label="Reconciliation Hub" />
+          <AdminNavLink href="/admin/webhooks" icon={<Webhook size={16} />} label="Webhooks Queue" />
+          <AdminNavLink href="/admin/logs" icon={<Terminal size={16} />} label="System Logs" />
           <AdminNavLink href="/admin/referrals" icon={<Users size={16} />} label="Referral Hub" />
           <AdminNavLink href="/admin/analytics" icon={<BarChart3 size={16} />} label="System Health" />
+          <AdminNavLink href="/admin/calculator" icon={<Calculator size={16} />} label="Cost Planner" />
           <AdminNavLink href="/admin/settings" icon={<Settings size={16} />} label="Settings" />
         </nav>
 

@@ -11,10 +11,7 @@ export async function GET() {
     const session = await getServerSession(authOptions);
     let merchantId = session?.user?.merchantId;
 
-    if (!merchantId) {
-      const firstMerchant = await prisma.merchant.findFirst({ select: { id: true } });
-      merchantId = firstMerchant?.id;
-    }
+    // Fallback removed for security
 
     if (!merchantId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -52,10 +49,7 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
     let merchantId = session?.user?.merchantId;
 
-    if (!merchantId) {
-      const firstMerchant = await prisma.merchant.findFirst({ select: { id: true } });
-      merchantId = firstMerchant?.id;
-    }
+    // Fallback removed for security
 
     if (!merchantId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

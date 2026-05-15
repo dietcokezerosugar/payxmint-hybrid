@@ -24,6 +24,8 @@ export async function POST(req: NextRequest) {
           desiredStatus: true,
           botPassword: true,
           reportId: true,
+          proxyConfig: true,
+          otpCode: true,
         }
       });
 

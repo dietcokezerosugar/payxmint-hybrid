@@ -48,19 +48,29 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger, session }) {
+      // Initial sign in
       if (user) {
         token.id = user.id;
         token.role = user.role;
         token.merchantId = user.merchantId;
       }
+
+      // Handle session updates (e.g., when a merchant is assigned or role changes)
+      if (trigger === "update" && session) {
+        return { ...token, ...session.user };
+      }
+
+      // Maximum Control: Every time the token is accessed, we could verify user status
+      // but to keep it performant, we only do it if the token is old or on specific triggers.
+      // For now, we ensure the basic fields are always there.
       return token;
     },
     async session({ session, token }) {
       if (token && session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
-        session.user.merchantId = token.merchantId as string;
+        session.user.id = token.id;
+        session.user.role = token.role;
+        session.user.merchantId = token.merchantId;
       }
       return session;
     },

@@ -13,6 +13,7 @@ import {
   ShieldAlert, 
   ShieldCheck,
   Activity,
+  Palette,
   Lock,
   ArrowUpRight,
   Server,
@@ -26,6 +27,11 @@ export default function SettingsPage() {
   const [ipWhitelist, setIpWhitelist] = useState("");
   const [telegramBotToken, setTelegramBotToken] = useState("");
   const [telegramChatId, setTelegramChatId] = useState("");
+  const [webhookSecret, setWebhookSecret] = useState("");
+  const [brandColor, setBrandColor] = useState("#2563eb");
+  const [brandLogo, setBrandLogo] = useState("");
+  const [brandName, setBrandName] = useState("");
+  const [showSupportEmail, setShowSupportEmail] = useState(true);
   const [apiAccessStatus, setApiAccessStatus] = useState("NOT_REQUESTED");
   const [referralCode, setReferralCode] = useState("");
   const [agentInfo, setAgentInfo] = useState<any>(null);
@@ -42,6 +48,11 @@ export default function SettingsPage() {
           setIpWhitelist(d.data.ipWhitelist || "");
           setTelegramBotToken(d.data.telegramBotToken || "");
           setTelegramChatId(d.data.telegramChatId || "");
+          setWebhookSecret(d.data.webhookSecret || "");
+          setBrandColor(d.data.brandColor || "#2563eb");
+          setBrandLogo(d.data.brandLogo || "");
+          setBrandName(d.data.brandName || "");
+          setShowSupportEmail(d.data.showSupportEmail ?? true);
           setApiAccessStatus(d.data.apiAccessStatus || "NOT_REQUESTED");
           setAgentInfo(d.data.agent || null);
         }
@@ -75,7 +86,11 @@ export default function SettingsPage() {
         redirectUrl, 
         webhookUrl, 
         telegramBotToken, 
-        telegramChatId 
+        telegramChatId,
+        brandColor,
+        brandLogo,
+        brandName,
+        showSupportEmail
       }),
     });
     setSaved(true);
@@ -93,6 +108,17 @@ export default function SettingsPage() {
     } finally {
       setApplying(false);
     }
+  }
+
+  async function rotateWebhookSecret() {
+    if (!confirm("Rotating your secret will break existing webhook verifications until you update your server. Continue?")) return;
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "ROTATE_SECRET" }),
+    });
+    const data = await res.json();
+    if (data.secret) setWebhookSecret(data.secret);
   }
 
   return (
@@ -172,6 +198,37 @@ export default function SettingsPage() {
                       placeholder="https://api.yoursite.com/webhook"
                       className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-[20px] text-sm font-bold text-slate-900 focus:bg-white focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all outline-none"
                    />
+                </div>
+                <div className="space-y-3 col-span-2">
+                   <div className="flex items-center justify-between px-1">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Webhook Signing Secret</label>
+                      <button 
+                        onClick={rotateWebhookSecret}
+                        className="text-[9px] font-black text-rose-500 uppercase hover:underline"
+                      >
+                        Rotate Secret
+                      </button>
+                   </div>
+                   <div className="relative group">
+                      <input 
+                          type="text"
+                          readOnly
+                          value={webhookSecret || "Not Generated"}
+                          className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-[20px] text-xs font-mono font-bold text-slate-600 outline-none pr-24"
+                      />
+                      <button 
+                        onClick={() => {
+                          navigator.clipboard.writeText(webhookSecret);
+                          alert("Secret copied to clipboard");
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl text-[9px] font-black uppercase text-slate-500 hover:text-blue-600 shadow-sm"
+                      >
+                        Copy
+                      </button>
+                   </div>
+                   <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter px-1">
+                      Use this secret to verify the <code className="text-blue-600">X-Wave-Signature</code> header in incoming webhooks.
+                   </p>
                 </div>
                 {/* Managed Infrastructure */}
                 <div className="space-y-4 pt-4 border-t border-slate-50 col-span-2">
@@ -254,8 +311,87 @@ export default function SettingsPage() {
                      </div>
                   </div>
                 )}
-             </div>
-          </section>
+              </div>
+           </section>
+
+           {/* Branding & Appearance */}
+           <section className="bg-white rounded-[32px] border border-slate-200 p-8 space-y-8 shadow-sm">
+              <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center border border-indigo-100">
+                    <Palette className="w-5 h-5" />
+                 </div>
+                 <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest">Checkout Branding</h3>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-8">
+                 <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Display Business Name</label>
+                    <input 
+                       value={brandName}
+                       onChange={(e) => setBrandName(e.target.value)}
+                       placeholder="e.g. Acme Payments"
+                       className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-[20px] text-sm font-bold text-slate-900 focus:bg-white focus:ring-4 focus:ring-blue-600/5 focus:border-blue-600 transition-all outline-none"
+                    />
+                 </div>
+                 <div className="space-y-3">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Primary Brand Color</label>
+                    <div className="flex gap-3">
+                       <input 
+                          type="color"
+                          value={brandColor}
+                          onChange={(e) => setBrandColor(e.target.value)}
+                          className="h-13 w-13 rounded-xl border-none cursor-pointer bg-transparent"
+                       />
+                       <input 
+                          value={brandColor}
+                          onChange={(e) => setBrandColor(e.target.value)}
+                          className="flex-1 px-5 py-4 bg-slate-50 border border-slate-100 rounded-[20px] text-sm font-mono font-bold text-slate-900 focus:bg-white transition-all outline-none"
+                       />
+                    </div>
+                 </div>
+                 <div className="space-y-3 col-span-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Logo URL (Transparent PNG Rec.)</label>
+                    <input 
+                       value={brandLogo}
+                       onChange={(e) => setBrandLogo(e.target.value)}
+                       placeholder="https://cdn.yoursite.com/logo.png"
+                       className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-[20px] text-sm font-bold text-slate-900 focus:bg-white outline-none"
+                    />
+                 </div>
+                 
+                 <div className="col-span-2 p-6 bg-slate-50 rounded-[28px] border border-slate-100 flex items-center justify-between">
+                    <div className="space-y-1">
+                       <p className="text-[11px] font-black text-slate-900">Show Support Identity</p>
+                       <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Display your email on the checkout page</p>
+                    </div>
+                    <button 
+                      onClick={() => setShowSupportEmail(!showSupportEmail)}
+                      className={`w-12 h-6 rounded-full relative transition-all ${showSupportEmail ? 'bg-indigo-600' : 'bg-slate-300'}`}
+                    >
+                      <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${showSupportEmail ? 'left-7' : 'left-1'}`} />
+                    </button>
+                 </div>
+              </div>
+
+              {/* Live Preview */}
+              <div className="pt-4 border-t border-slate-50">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4 px-1">Live Checkout Preview</p>
+                 <div className="bg-slate-100 rounded-[32px] p-8 flex items-center justify-center">
+                    <div className="bg-white w-full max-w-xs rounded-2xl shadow-xl overflow-hidden border border-slate-200">
+                       <div className="p-4 border-b border-slate-50 flex items-center justify-between" style={{ borderTop: `4px solid ${brandColor}` }}>
+                          {brandLogo ? <img src={brandLogo} alt="Logo" className="h-6 object-contain" /> : <div className="w-6 h-6 bg-slate-100 rounded-full" />}
+                          <span className="text-[10px] font-black text-slate-900">{brandName || "Merchant Name"}</span>
+                       </div>
+                       <div className="p-6 space-y-4">
+                          <div className="h-10 w-full bg-slate-50 rounded-xl" />
+                          <button className="w-full py-3 rounded-xl text-white text-[10px] font-black uppercase tracking-widest" style={{ backgroundColor: brandColor }}>
+                             Pay Securely
+                          </button>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+           </section>
         </div>
 
         <div className="space-y-8">

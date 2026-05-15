@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { Download, CheckCircle2, Clock, XCircle, AlertTriangle, Search, X } from "lucide-react";
+import { exportToCSV } from "@/lib/csv";
 
 export default function TransactionsPage() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -64,6 +65,18 @@ export default function TransactionsPage() {
     return matchesStatus && matchesSearch;
   });
 
+  const handleExport = () => {
+    const dataToExport = filtered.map(t => ({
+      Reference: t.referenceId,
+      Amount: t.amount,
+      Status: t.status,
+      Payer: t.payerName || t.transaction?.payerName,
+      UTR: t.transaction?.utr,
+      Date: new Date(t.createdAt).toLocaleString()
+    }));
+    exportToCSV(`WaveCollect_Activity_${new Date().toISOString().slice(0,10)}.csv`, dataToExport);
+  };
+
   function statusIcon(status: string) {
     switch (status) {
       case "SUCCESS":
@@ -98,12 +111,12 @@ export default function TransactionsPage() {
              <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
              <span className="text-[10px] font-black uppercase tracking-widest">Network Live</span>
           </div>
-          <a
-            href="/api/export"
+          <button
+            onClick={handleExport}
             className="flex-1 md:flex-none px-5 py-2.5 bg-slate-900 text-white rounded-xl text-[11px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-black transition-all shadow-md shadow-slate-900/10 active:scale-95"
           >
             <Download className="w-4 h-4" /> Export Ledger
-          </a>
+          </button>
         </div>
       </div>
 

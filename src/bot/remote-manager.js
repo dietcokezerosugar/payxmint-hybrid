@@ -4,9 +4,11 @@ const path = require('path');
 const promisify = require('util').promisify;
 const execAsync = promisify(exec);
 
+require('dotenv').config({ path: path.join(__dirname, '../../.env') });
+
 // CONFIGURATION
-const VPS_URL = "https://your-vps-domain.com"; // User will need to change this
-const BOT_SECRET = "wave_collect_bridge_secret_998877";
+const VPS_URL = process.env.VPS_URL || "https://your-vps-domain.com"; 
+const BOT_SECRET = process.env.BOT_SYSTEM_SECRET || "wave_collect_bridge_secret_998877";
 const SYNC_INTERVAL_MS = 30000; // 30 seconds
 
 async function sync() {
@@ -15,7 +17,8 @@ async function sync() {
         const res = await axios.post(`${VPS_URL}/api/bots/bridge`, {
             action: "sync"
         }, {
-            headers: { "x-bot-secret": BOT_SECRET }
+            headers: { "x-bot-secret": BOT_SECRET },
+            timeout: 10000
         });
 
         const accounts = res.data.accounts || [];
@@ -55,8 +58,10 @@ async function handleAccount(acc) {
         console.log(`[ACTION] 🔐 Attempting AUTO-LOGIN for ${acc.name}...`);
         try {
             const loginScript = path.join(__dirname, 'auto-login.js');
-            // Usage: node auto-login.js <name> <email> <password>
-            await execAsync(`node "${loginScript}" "${acc.name}" "${acc.email}" "${acc.botPassword}"`);
+            // Usage: node auto-login.js <name> <email> <password> <proxy>
+            await execAsync(`node "${loginScript}" "${acc.name}" "${acc.email}" "${acc.botPassword}" "${acc.proxyConfig || ''}"`, {
+                env: { ...process.env, VPS_URL, BOT_SECRET }
+            });
             console.log(`[SUCCESS] Auto-login complete for ${acc.name}. Switching to START.`);
             
             // Immediately report success to VPS so it changes desiredStatus to START
@@ -64,10 +69,28 @@ async function handleAccount(acc) {
                 action: "start",
                 name: acc.name
             }, {
-                headers: { "x-bot-secret": BOT_SECRET }
+                headers: { "x-bot-secret": BOT_SECRET },
+                timeout: 10000
             });
         } catch (e) {
             console.error(`[ERROR] Auto-login failed: ${e.message}`);
+        }
+    } else if (acc.desiredStatus === "LOGIN_MANUAL") {
+        console.log(`[ACTION] 🖥️ Attempting MANUAL-LOGIN for ${acc.name}...`);
+        try {
+            const loginScript = path.join(__dirname, 'login.js');
+            await execAsync(`node "${loginScript}" "${acc.name}" "${acc.proxyConfig || ''}"`);
+            console.log(`[SUCCESS] Manual login completed for ${acc.name}. Switching to START.`);
+            
+            await axios.post(`${VPS_URL}/api/bots/control`, {
+                action: "start",
+                name: acc.name
+            }, {
+                headers: { "x-bot-secret": BOT_SECRET },
+                timeout: 10000
+            });
+        } catch (e) {
+            console.error(`[ERROR] Manual login failed: ${e.message}`);
         }
     } else if (acc.desiredStatus === "RESTART") {
         console.log(`[ACTION] Restarting ${acc.name}...`);
@@ -80,7 +103,8 @@ async function handleAccount(acc) {
         action: "heartbeat",
         payload: { name: acc.name, currentStatus: localStatus }
     }, {
-        headers: { "x-bot-secret": BOT_SECRET }
+        headers: { "x-bot-secret": BOT_SECRET },
+        timeout: 10000
     }).catch(() => {});
 }
 

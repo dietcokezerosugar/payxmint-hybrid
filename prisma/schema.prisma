@@ -47,12 +47,20 @@ model Merchant {
   paymentIntents   PaymentIntent[]
   gpayAccounts     GooglePayAccount[]
   ledgerEntries    WalletLedger[]
+  settlements      Settlement[]
   ipWhitelistRequests IpWhitelistRequest[]
   webhookLogs      WebhookLog[]
+  webhookEvents    WebhookEvent[]
   agent            Agent?           @relation(fields: [agentId], references: [id])
   agentId          String?
   
   apiAccessStatus  String           @default("NOT_REQUESTED") // NOT_REQUESTED, PENDING, APPROVED
+  
+  // Custom Branding
+  brandColor       String?          @default("#2563eb") // Primary brand color
+  brandLogo        String?          // URL to merchant logo
+  brandName        String?          // Display name on checkout
+  showSupportEmail Boolean          @default(true)
   
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
@@ -127,6 +135,11 @@ model PaymentIntent {
   transactionId    String?     @unique // linked after verification
   transaction      Transaction? @relation(fields: [transactionId], references: [id])
   
+  // Risk Engine & Customer Tracking
+  customerId       String?
+  customer         Customer?   @relation(fields: [customerId], references: [id])
+  customerRiskTier String      @default("HIGH") // Snapshot of risk at time of txn
+  
   // Auditing & Manual Flow
   isManualApproval Boolean     @default(false)
   approvalIp       String?     
@@ -170,12 +183,22 @@ model GooglePayAccount {
   upiId          String
   reportId       String?
   status         String    @default("ACTIVE")
-  desiredStatus  String    @default("STOP") // START, STOP, LOGIN_AUTO, LOGIN_MANUAL
+  desiredStatus  String    @default("STOP") // START, STOP, LOGIN_AUTO, LOGIN_MANUAL, WAITING_OTP, OTP_READY
   botPassword    String?   // For remote auto-login
+  otpCode        String?   // Temporary storage for OTP
   lastHeartbeat  DateTime?
   lastSync       DateTime?
   
+  // VPA Lifecycle & Risk Engine
+  vendorType     String    @default("GPAY") // GPAY, PAYTM, PINELABS
+  riskTier       String    @default("HIGH") // HIGH, MID, LOW
+  healthScore    Float     @default(100)
+  cooldownUntil  DateTime?
+  successfulTxn  Int       @default(0)
+  poolAssignments VPAPoolAssignment[]
+  
   isAdmin        Boolean   @default(false) 
+  proxyConfig    String?   // Format: http://user:pass@ip:port
   
   // Advanced SaaS Limits
   minTicket      Float     @default(0)
@@ -222,7 +245,6 @@ model IpWhitelistRequest {
   updatedAt     DateTime @updatedAt
 }
 
-
 model WebhookLog {
   id          String   @id @default(cuid())
   merchantId  String
@@ -235,4 +257,84 @@ model WebhookLog {
   isSuccess   Boolean  @default(false)
   attempts    Int      @default(1)
   createdAt   DateTime @default(now())
+}
+
+model WebhookEvent {
+  id          String   @id @default(cuid())
+  merchantId  String
+  merchant    Merchant @relation(fields: [merchantId], references: [id])
+  event       String
+  payload     String   // JSON string
+  url         String
+  status      String   @default("PENDING") // PENDING, FAILED, SUCCESS
+  retryCount  Int      @default(0)
+  nextRetryAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ==========================================
+// RISK ENGINE & VPA LIFECYCLE MANAGEMENT
+// ==========================================
+
+model Customer {
+  id                String   @id @default(cuid())
+  fingerprint       String   @unique // hash(device+ip+phone)
+  phone             String?
+  deviceId          String?
+  ipAddress         String?
+  riskTier          String   @default("HIGH") // HIGH, MID, LOW
+  successfulTxnCount Int     @default(0)
+  totalVolume       Float    @default(0)
+  firstSeenAt       DateTime @default(now())
+  lastTxnAt         DateTime?
+  isFTD             Boolean  @default(true) // First Time Depositor
+  paymentIntents    PaymentIntent[]
+}
+
+model BankPool {
+  id        String   @id @default(cuid())
+  name      String   // "High-Risk Pool", "Default Pool", "VIP Pool"
+  riskTiers String   // "HIGH", "HIGH,MID", "LOW"
+  priority  Int      @default(0)
+  isActive  Boolean  @default(true)
+  accounts  VPAPoolAssignment[]
+}
+
+model VPAPoolAssignment {
+  id          String           @id @default(cuid())
+  poolId      String
+  pool        BankPool         @relation(fields: [poolId], references: [id], onDelete: Cascade)
+  accountId   String
+  account     GooglePayAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  priority    Int              @default(0)
+  
+  @@unique([poolId, accountId])
+}
+
+// NEW: Routing Audit
+model RoutingDecision {
+  id              String   @id @default(cuid())
+  paymentIntentId String   @unique
+  customerRiskTier String
+  ticketSize      String   // SMALL, MEDIUM, LARGE
+  selectedPool    String?
+  selectedBank    String?
+  fallbackUsed    Boolean  @default(false)
+  limitsApplied   String?  // JSON
+  createdAt       DateTime @default(now())
+}
+
+// NEW: Settlement Management
+model Settlement {
+  id             String   @id @default(cuid())
+  merchantId     String
+  merchant       Merchant @relation(fields: [merchantId], references: [id])
+  totalAmount    Float
+  holdAmount     Float    @default(0)
+  releasedAmount Float    @default(0)
+  status         String   @default("UNSETTLED") // UNSETTLED, HELD, PARTIAL, SETTLED, PAID_OUT
+  settledAt      DateTime?
+  paidOutAt      DateTime?
+  createdAt      DateTime @default(now())
 }

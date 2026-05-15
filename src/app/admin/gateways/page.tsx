@@ -12,6 +12,7 @@ import {
   User,
   Save,
   CheckCircle2,
+  Clock,
 } from "lucide-react";
 
 export default function GlobalFleetMonitor() {
@@ -43,6 +44,25 @@ export default function GlobalFleetMonitor() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, action: "TOGGLE_STATUS", status: newStatus }),
+    });
+    fetchGateways();
+  };
+
+  const setCooldown = async (id: string) => {
+    if (!confirm("Are you sure you want to put this account in a 4-hour cooldown?")) return;
+    await fetch("/api/admin/gateways", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: "SET_COOLDOWN" }),
+    });
+    fetchGateways();
+  };
+
+  const updateRiskTier = async (id: string, newTier: string) => {
+    await fetch("/api/admin/gateways", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, action: "UPDATE_RISK_TIER", riskTier: newTier }),
     });
     fetchGateways();
   };
@@ -111,8 +131,8 @@ export default function GlobalFleetMonitor() {
           <thead>
             <tr className="bg-slate-50 border-b border-slate-200">
               <th className="p-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Gateway / Merchant</th>
-              <th className="p-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Daily Limit Usage</th>
-              <th className="p-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Ticket Range (Editable)</th>
+              <th className="p-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Limits & Health</th>
+              <th className="p-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Risk Pool</th>
               <th className="p-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Control</th>
             </tr>
           </thead>
@@ -138,65 +158,68 @@ export default function GlobalFleetMonitor() {
                     </div>
                   </td>
                   <td className="p-4 px-6">
-                    <div className="w-full max-w-[200px] space-y-1.5">
-                      <div className="flex justify-between items-center text-[10px] font-black uppercase">
-                        <span className="text-slate-600">₹{g.currentDaily.toLocaleString()}</span>
-                        <span className="text-slate-400">₹{g.dailyLimit === 0 ? "∞" : g.dailyLimit.toLocaleString()}</span>
+                    <div className="w-full max-w-[200px] space-y-3">
+                      <div>
+                        <div className="flex justify-between items-center text-[9px] font-black uppercase mb-1">
+                          <span className="text-slate-500">Volume: ₹{g.currentDaily.toLocaleString()}</span>
+                          <span className="text-slate-400">/ ₹{g.dailyLimit === 0 ? "∞" : g.dailyLimit.toLocaleString()}</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
+                          <div
+                            className={`h-full transition-all duration-1000 ${g.currentDaily >= g.dailyLimit && g.dailyLimit > 0 ? "bg-rose-500" : "bg-blue-600"}`}
+                            style={{ width: `${g.dailyLimit === 0 ? 0 : Math.min((g.currentDaily / g.dailyLimit) * 100, 100)}%` }}
+                          />
+                        </div>
                       </div>
-                      <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden border border-slate-200">
-                        <div
-                          className={`h-full transition-all duration-1000 ${g.currentDaily >= g.dailyLimit && g.dailyLimit > 0 ? "bg-rose-500" : "bg-blue-600"}`}
-                          style={{ width: `${g.dailyLimit === 0 ? 0 : Math.min((g.currentDaily / g.dailyLimit) * 100, 100)}%` }}
-                        />
+                      
+                      <div className="flex justify-between items-center text-[9px] font-black uppercase gap-2">
+                        <span className={`px-2 py-0.5 rounded border ${g.healthScore < 70 ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                          Health: {g.healthScore}/100
+                        </span>
+                        <span className={`px-2 py-0.5 rounded border ${g.successfulTxn >= 100 ? 'bg-rose-50 text-rose-600 border-rose-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
+                          Txns: {g.successfulTxn}/100
+                        </span>
                       </div>
                     </div>
                   </td>
                   <td className="p-4 px-6">
-                    <div className="flex items-center gap-2">
-                      <div className="space-y-1.5">
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest w-8">MIN</span>
-                          <input
-                            type="number"
-                            defaultValue={g.minTicket}
-                            onChange={(e) => handleTicketEdit(g.id, "min", e.target.value, { min: g.minTicket, max: g.maxTicket })}
-                            className="w-28 px-3 py-1.5 bg-white border border-slate-200 rounded-md text-[11px] font-bold text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all text-right shadow-sm"
-                          />
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest w-8">MAX</span>
-                          <input
-                            type="number"
-                            defaultValue={g.maxTicket}
-                            onChange={(e) => handleTicketEdit(g.id, "max", e.target.value, { min: g.minTicket, max: g.maxTicket })}
-                            className="w-28 px-3 py-1.5 bg-white border border-slate-200 rounded-md text-[11px] font-bold text-slate-900 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500/20 transition-all text-right shadow-sm"
-                          />
-                        </div>
+                    <div className="flex flex-col gap-2">
+                      <select 
+                        value={g.riskTier} 
+                        onChange={(e) => updateRiskTier(g.id, e.target.value)}
+                        className={`text-[10px] font-black uppercase tracking-widest px-3 py-1.5 rounded-lg border outline-none cursor-pointer transition-all
+                          ${g.riskTier === 'HIGH' ? 'bg-rose-50 text-rose-700 border-rose-200' : 
+                            g.riskTier === 'MID' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
+                            'bg-emerald-50 text-emerald-700 border-emerald-200'}
+                        `}
+                      >
+                        <option value="HIGH">High Risk Pool</option>
+                        <option value="MID">Mid Risk Pool</option>
+                        <option value="LOW">Low/VIP Pool</option>
+                      </select>
+                      
+                      <div className="flex items-center gap-1.5 mt-1">
+                        <span className="text-[9px] font-bold text-slate-400">Tickets:</span>
+                        <span className="text-[10px] font-black text-slate-700">₹{g.minTicket} - ₹{g.maxTicket}</span>
                       </div>
-                      {isEditing && (
-                        <button
-                          onClick={() => saveTicketSize(g.id)}
-                          disabled={isSaving}
-                          className="p-2 bg-blue-50 text-blue-600 border border-blue-100 rounded-lg hover:bg-blue-100 transition-all shadow-sm"
-                          title="Save ticket size"
-                        >
-                          <Save size={14} />
-                        </button>
-                      )}
-                      {justSaved && (
-                        <div className="p-2 text-emerald-600">
-                          <CheckCircle2 size={16} />
-                        </div>
-                      )}
                     </div>
                   </td>
                   <td className="p-4 px-6 text-right">
-                    <button
-                      onClick={() => toggleStatus(g.id, g.status)}
-                      className={`p-1.5 rounded-lg transition-all ${g.status === "ACTIVE" ? "text-emerald-600 hover:bg-emerald-50" : "text-slate-400 hover:bg-slate-100"}`}
-                    >
-                      {g.status === "ACTIVE" ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
-                    </button>
+                    <div className="flex items-center justify-end gap-2">
+                      <button
+                        onClick={() => setCooldown(g.id)}
+                        title="Set 4-hour Cooldown"
+                        className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                      >
+                        <Clock size={18} />
+                      </button>
+                      <button
+                        onClick={() => toggleStatus(g.id, g.status)}
+                        className={`p-1.5 rounded-lg transition-all ${g.status === "ACTIVE" ? "text-emerald-600 hover:bg-emerald-50" : "text-slate-400 hover:bg-slate-100"}`}
+                      >
+                        {g.status === "ACTIVE" ? <ToggleRight size={28} /> : <ToggleLeft size={28} />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );

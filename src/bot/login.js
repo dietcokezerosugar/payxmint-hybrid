@@ -4,6 +4,10 @@ const fs = require('fs');
 const axios = require('axios');
 
 const ACCOUNT_NAME = process.argv[2];
+const PROXY_CONFIG = process.argv[3];
+const HUB_URL = process.env.HUB_URL || "http://localhost:3000";
+const BOT_SECRET = process.env.BOT_SYSTEM_SECRET || "wave_collect_bridge_secret_998877";
+
 if (!ACCOUNT_NAME) {
     console.error("Account name required");
     process.exit(1);
@@ -16,7 +20,7 @@ async function run() {
     console.log(`[MANUAL] Launching headful login browser for ${ACCOUNT_NAME}`);
     const chromePath = chromium.executablePath();
     
-    const context = await chromium.launchPersistentContext(SESSION_DIR, {
+    const launchOptions = {
         headless: false,
         executablePath: chromePath,
         args: [
@@ -25,7 +29,19 @@ async function run() {
             '--window-size=1280,900'
         ],
         viewport: { width: 1280, height: 900 }
-    });
+    };
+
+    if (PROXY_CONFIG && PROXY_CONFIG.length > 5) {
+        console.log(`[MANUAL] Routing through Proxy: ${PROXY_CONFIG}`);
+        const proxyUrl = new URL(PROXY_CONFIG.startsWith('http') ? PROXY_CONFIG : `http://${PROXY_CONFIG}`);
+        launchOptions.proxy = { server: `${proxyUrl.protocol}//${proxyUrl.hostname}:${proxyUrl.port}` };
+        if (proxyUrl.username) {
+            launchOptions.proxy.username = proxyUrl.username;
+            launchOptions.proxy.password = proxyUrl.password;
+        }
+    }
+
+    const context = await chromium.launchPersistentContext(SESSION_DIR, launchOptions);
 
     const page = await context.newPage();
     await page.goto('https://pay.google.com/g4b/signup');
@@ -40,11 +56,15 @@ async function run() {
     console.log("[SYSTEM] Window closed. Starting auto-discovery and bot provisioning...");
 
     // 1. Brief headless check to find the Merchant ID
-    const discoveryContext = await chromium.launchPersistentContext(SESSION_DIR, {
+    const discoveryLaunchOptions = {
         headless: true,
         executablePath: chromePath,
         args: ['--no-sandbox']
-    });
+    };
+    if (launchOptions.proxy) {
+        discoveryLaunchOptions.proxy = launchOptions.proxy;
+    }
+    const discoveryContext = await chromium.launchPersistentContext(SESSION_DIR, discoveryLaunchOptions);
     const dPage = await discoveryContext.newPage();
     
     try {
@@ -57,9 +77,11 @@ async function run() {
             console.log(`[SUCCESS] Auto-discovered Merchant ID: ${reportId}`);
             
             // 2. Save to Database
-            await axios.post('http://localhost:3000/api/bots/config', {
+            await axios.post(`${HUB_URL}/api/bots/config`, {
                 name: ACCOUNT_NAME,
                 report_id: reportId
+            }, {
+                headers: { "x-bot-secret": BOT_SECRET }
             });
             console.log("[SYSTEM] Configuration updated successfully.");
         }

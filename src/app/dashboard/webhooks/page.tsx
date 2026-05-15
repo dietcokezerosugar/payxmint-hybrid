@@ -1,12 +1,15 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Webhook, CheckCircle2, Save } from "lucide-react";
+import { Webhook, CheckCircle2, Save, Activity, Clock, XCircle, RefreshCw } from "lucide-react";
+import { motion } from "framer-motion";
 
 export default function WebhooksPage() {
   const [webhookUrl, setWebhookUrl] = useState("");
+  const [logs, setLogs] = useState<any[]>([]);
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   useEffect(() => {
     fetch("/api/settings")
@@ -14,7 +17,14 @@ export default function WebhooksPage() {
       .then((d) => {
         if (d.data?.webhookUrl) setWebhookUrl(d.data.webhookUrl);
       });
+    fetchLogs();
   }, []);
+
+  async function fetchLogs() {
+    const res = await fetch("/api/dashboard/webhooks");
+    const d = await res.json();
+    setLogs(d.data || []);
+  }
 
   async function saveWebhook() {
     setLoading(true);
@@ -30,22 +40,24 @@ export default function WebhooksPage() {
 
   async function testWebhook() {
     if (!webhookUrl) return;
+    setTesting(true);
     try {
-      const res = await fetch(webhookUrl, {
+      const res = await fetch("/api/dashboard/webhooks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event: "payment.test",
-          status: "SUCCESS",
-          amount: 100,
-          txn_id: "TEST-12345",
-          reference_id: "test-order-001",
-          timestamp: new Date().toISOString(),
-        }),
+        body: JSON.stringify({ action: "TEST" }),
       });
-      alert(res.ok ? "Webhook delivered successfully!" : `Webhook returned ${res.status}`);
+      const data = await res.json();
+      if (data.status === "success") {
+        alert("Test packet dispatched securely. Check logs below.");
+        fetchLogs();
+      } else {
+        alert("Webhook delivery failed. Check your endpoint connectivity.");
+      }
     } catch (e: any) {
-      alert("Webhook test failed: " + e.message);
+      alert("Error triggering test: " + e.message);
+    } finally {
+      setTesting(false);
     }
   }
 
@@ -88,12 +100,65 @@ export default function WebhooksPage() {
             </button>
             <button
               onClick={testWebhook}
-              disabled={!webhookUrl}
-              className="w-full md:w-auto px-8 py-3.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50 shadow-sm"
+              disabled={!webhookUrl || testing}
+              className="w-full md:w-auto px-8 py-3.5 bg-white border border-slate-200 text-slate-600 rounded-xl text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 transition-all active:scale-95 disabled:opacity-50 shadow-sm flex items-center justify-center gap-2"
             >
+              {testing ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Activity className="w-4 h-4" />}
               Dispatch Test Packet
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Delivery History */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between px-4">
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Delivery History (Recent 50)</h3>
+          <button onClick={fetchLogs} className="text-blue-600 font-black text-[9px] uppercase tracking-widest hover:underline">Refresh</button>
+        </div>
+        
+        <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm overflow-x-auto">
+          <table className="w-full text-left border-collapse min-w-[600px]">
+             <thead>
+                <tr className="bg-slate-50 border-b border-slate-100">
+                   <th className="p-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Event</th>
+                   <th className="p-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Result</th>
+                   <th className="p-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest">Latency / Code</th>
+                   <th className="p-4 px-6 text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Timestamp</th>
+                </tr>
+             </thead>
+             <tbody className="divide-y divide-slate-50">
+                {logs.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="p-12 text-center text-slate-400 font-bold text-[10px] uppercase tracking-widest">No dispatch history recorded</td>
+                  </tr>
+                ) : logs.map((log) => (
+                  <tr key={log.id} className="hover:bg-slate-50/50 transition-colors">
+                    <td className="p-4 px-6">
+                       <p className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{log.event}</p>
+                       <p className="text-[9px] font-bold text-slate-400 uppercase mt-0.5">{JSON.parse(log.payload).reference_id}</p>
+                    </td>
+                    <td className="p-4 px-6">
+                       <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[9px] font-black uppercase border ${
+                         log.isSuccess ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-rose-50 text-rose-600 border-rose-100'
+                       }`}>
+                          {log.isSuccess ? <CheckCircle2 size={10} /> : <XCircle size={10} />}
+                          {log.isSuccess ? "Delivered" : "Failed"}
+                       </div>
+                    </td>
+                    <td className="p-4 px-6">
+                       <span className="text-[11px] font-mono font-bold text-slate-500">HTTP {log.status || '???' }</span>
+                    </td>
+                    <td className="p-4 px-6 text-right">
+                       <div className="flex items-center justify-end gap-2 text-slate-400">
+                          <Clock size={10} />
+                          <span className="text-[10px] font-bold">{new Date(log.createdAt).toLocaleString()}</span>
+                       </div>
+                    </td>
+                  </tr>
+                ))}
+             </tbody>
+          </table>
         </div>
       </div>
 

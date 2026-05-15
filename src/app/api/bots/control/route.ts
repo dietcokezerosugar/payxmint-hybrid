@@ -44,6 +44,17 @@ export async function POST(req: NextRequest) {
       case "restart":
         desiredStatus = "RESTART";
         break;
+      case "waiting_otp":
+        desiredStatus = "WAITING_OTP";
+        break;
+      case "submit_otp":
+        desiredStatus = "OTP_READY";
+        const otpCode = (body as any).otpCode;
+        await prisma.googlePayAccount.updateMany({
+            where: { name },
+            data: { desiredStatus, otpCode }
+        });
+        return NextResponse.json({ status: "success" });
       case "delete":
         // For delete, we still might want to mark as deleted in DB
         await prisma.googlePayAccount.updateMany({

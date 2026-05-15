@@ -5,18 +5,10 @@ import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
 
 export default async function DashboardPage() {
-  let session = await getServerSession(authOptions);
+  const session = await getServerSession(authOptions);
   
-  // BYPASS AUTH FOR CLIENT DEMO
   if (!session || !session.user) {
-    session = {
-      user: {
-        name: "Demo User",
-        email: "merchant@wavecollect.com",
-        role: "MERCHANT",
-        merchantId: "local-dev"
-      }
-    } as any;
+    redirect("/login");
   }
 
   let merchant: any = null;
@@ -32,11 +24,7 @@ export default async function DashboardPage() {
     });
 
     if (!merchant) {
-      merchant = await prisma.merchant.findFirst({
-        include: {
-          _count: { select: { paymentIntents: true, gpayAccounts: true } }
-        }
-      });
+      merchant = await prisma.merchant.findUnique({ where: { id: session.user.merchantId }, include: { agent: true } });
     }
 
     if (merchant) {
@@ -54,21 +42,15 @@ export default async function DashboardPage() {
     console.error("Dashboard DB Critical Error:", dbError);
   }
 
-  // ULTIMATE DEMO FALLBACK: Hardcoded mock data if DB is missing or empty
   if (!merchant) {
-    merchant = {
-      id: "demo-merchant",
-      name: "WaveCollect Demo Merchant",
-      businessName: "Wave Collect Payments",
-      email: "demo@wavecollect.com",
-      walletBalance: 25450.00,
-      commissionRate: 1.5,
-      _count: { paymentIntents: 124, gpayAccounts: 3 }
-    };
-    ledgerEntries = [
-      { id: "L1", type: "CREDIT", amount: 5000, description: "Wallet Recharge", createdAt: new Date() },
-      { id: "L2", type: "DEBIT", amount: 75, description: "Settlement Fee", createdAt: new Date() }
-    ];
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-slate-900">Merchant Account Not Found</h2>
+          <p className="text-slate-500 mt-2">Please contact support to activate your merchant profile.</p>
+        </div>
+      </div>
+    );
   }
 
   return (

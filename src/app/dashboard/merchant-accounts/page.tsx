@@ -12,6 +12,7 @@ interface GPayAccount {
   upiId: string;
   reportId: string | null;
   status: string;
+  desiredStatus: string;
   monthlyLimit: number;
   usedAmount: number;
   pm2Status?: "online" | "stopped" | "errored" | "unknown";
@@ -31,6 +32,7 @@ export default function MerchantAccountsPage() {
   const [newUpiId, setNewUpiId] = useState("");
   const [newMinTicket, setNewMinTicket] = useState("");
   const [newMaxTicket, setNewMaxTicket] = useState("");
+  const [newProxy, setNewProxy] = useState("");
 
   const [autoLoginLogs, setAutoLoginLogs] = useState<string[]>([]);
   const [isLoginComplete, setIsLoginComplete] = useState(false);
@@ -39,6 +41,8 @@ export default function MerchantAccountsPage() {
   const [activeLogBot, setActiveLogBot] = useState<string | null>(null);
   const [liveLogs, setLiveLogs] = useState<string[]>([]);
   const [botStats, setBotStats] = useState<any>(null);
+
+  const [otpInputs, setOtpInputs] = useState<Record<string, string>>({});
 
   useEffect(() => {
     fetchAccounts();
@@ -210,7 +214,7 @@ export default function MerchantAccountsPage() {
     await fetch("/api/gpay-accounts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: newName, email: newEmail, upiId: newUpiId, minTicket: newMinTicket, maxTicket: newMaxTicket }),
+      body: JSON.stringify({ name: newName, email: newEmail, upiId: newUpiId, minTicket: newMinTicket, maxTicket: newMaxTicket, proxyConfig: newProxy }),
     });
 
     // 2. Trigger auto login
@@ -235,10 +239,23 @@ export default function MerchantAccountsPage() {
   function resetWizard() {
     setShowWizard(false);
     setWizardStep(1);
-    setNewName(""); setNewEmail(""); setNewPassword(""); setNewUpiId(""); setNewMinTicket(""); setNewMaxTicket("");
+    setNewName(""); setNewEmail(""); setNewPassword(""); setNewUpiId(""); setNewMinTicket(""); setNewMaxTicket(""); setNewProxy("");
     setAutoLoginLogs([]);
     setIsLoginComplete(false);
     setIsLoginSuccess(false);
+  }
+
+  async function submitOtp(name: string) {
+    const code = otpInputs[name];
+    if (!code) return;
+    await fetch("/api/bots/control", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name, action: "submit_otp", otpCode: code }),
+    });
+    setOtpInputs(prev => ({...prev, [name]: ""}));
+    fetchAccounts();
+    alert("OTP sent to the remote engine. Please wait for synchronization to complete.");
   }
 
   return (
@@ -309,6 +326,10 @@ export default function MerchantAccountsPage() {
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Business UPI Endpoint</label>
                     <input value={newUpiId} onChange={(e) => setNewUpiId(e.target.value)} placeholder="merchant@okaxis" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-blue-600/5 outline-none transition-all placeholder:text-slate-300 text-slate-900" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Proxy Configuration (Optional)</label>
+                    <input value={newProxy} onChange={(e) => setNewProxy(e.target.value)} placeholder="http://user:pass@ip:port" className="w-full px-5 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold focus:bg-white focus:ring-4 focus:ring-blue-600/5 outline-none transition-all placeholder:text-slate-300 text-slate-900" />
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1.5">
@@ -442,6 +463,38 @@ export default function MerchantAccountsPage() {
                     </div>
                   </div>
                 </div>
+                
+                {acc.desiredStatus === "WAITING_OTP" && (
+                  <div className="bg-amber-50 border-t border-amber-100 p-4 md:px-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-amber-100 text-amber-600 rounded-lg flex items-center justify-center">
+                           <ShieldCheck className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-widest text-amber-900">Security Checkpoint</p>
+                          <p className="text-[11px] font-bold text-amber-700/70">Google is asking for an SMS/Email code.</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input 
+                          type="text" 
+                          placeholder="Enter 6-digit code" 
+                          value={otpInputs[acc.name] || ""}
+                          onChange={(e) => setOtpInputs({...otpInputs, [acc.name]: e.target.value})}
+                          className="px-4 py-2 border border-amber-200 bg-white rounded-lg text-xs font-bold outline-none focus:ring-2 focus:ring-amber-500/20"
+                        />
+                        <button 
+                          onClick={() => submitOtp(acc.name)}
+                          className="px-4 py-2 bg-amber-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all shadow-sm shadow-amber-500/20 active:scale-95"
+                        >
+                          Submit OTP
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-slate-50/30 border-t border-slate-100 p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div className="flex gap-2 w-full md:w-auto">
                     {isOnline ? (

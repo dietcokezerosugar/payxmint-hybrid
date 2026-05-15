@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 
 /**
  * GET: Fetch all Gateway Accounts across all merchants
  */
 export async function GET(req: NextRequest) {
+  const session = await getServerSession(authOptions);
+  if (session?.user?.role !== "ADMIN") return NextResponse.json({ error: "Unauthorized Admin" }, { status: 401 });
+
   try {
     const accounts = await prisma.googlePayAccount.findMany({
       include: {
@@ -62,6 +67,25 @@ export async function POST(req: NextRequest) {
         },
       });
 
+      return NextResponse.json({ status: "success", data: updated });
+    }
+
+    if (action === "UPDATE_RISK_TIER") {
+      const { riskTier } = await req.json();
+      const updated = await prisma.googlePayAccount.update({
+        where: { id },
+        data: { riskTier }
+      });
+      return NextResponse.json({ status: "success", data: updated });
+    }
+
+    if (action === "SET_COOLDOWN") {
+      const cooldownUntil = new Date();
+      cooldownUntil.setHours(cooldownUntil.getHours() + 4);
+      const updated = await prisma.googlePayAccount.update({
+        where: { id },
+        data: { cooldownUntil, status: "INACTIVE" }
+      });
       return NextResponse.json({ status: "success", data: updated });
     }
 

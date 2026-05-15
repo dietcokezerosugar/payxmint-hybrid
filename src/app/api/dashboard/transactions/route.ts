@@ -11,10 +11,7 @@ export async function GET(req: NextRequest) {
     const session = await getServerSession(authOptions);
     let merchantId = session?.user?.merchantId;
 
-    if (!merchantId) {
-      const firstMerchant = await prisma.merchant.findFirst({ select: { id: true } });
-      merchantId = firstMerchant?.id;
-    }
+    // Fallback removed for security
 
     if (!merchantId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -45,16 +42,8 @@ export async function GET(req: NextRequest) {
         take: 100,
       });
     } catch (e) {
-      console.warn("PaymentIntent table missing, using mock");
-      // Optional: Add one mock intent for visual feedback
-      intents = [{
-        id: "mock-txn-1",
-        amount: 500,
-        status: "SUCCESS",
-        referenceId: "WC_DEMO_123",
-        createdAt: new Date(),
-        transaction: { utr: "123456789012" }
-      }];
+      console.error("PaymentIntent fetch failed:", e);
+      intents = [];
     }
 
     return NextResponse.json({ status: "success", data: intents });
@@ -71,10 +60,7 @@ export async function POST(req: NextRequest) {
     const session = await getServerSession(authOptions);
     let merchantId = session?.user?.merchantId;
 
-    if (!merchantId) {
-      const firstMerchant = await prisma.merchant.findFirst({ select: { id: true } });
-      merchantId = firstMerchant?.id;
-    }
+    // Fallback removed for security
 
     if (!merchantId) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

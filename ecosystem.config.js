@@ -10,8 +10,26 @@ const accounts = fs.readdirSync(sessionDir)
     .filter(f => f.startsWith('session-'))
     .map(f => f.replace('session-', ''));
 
+const baseApps = [
+    {
+        name: "wavecollect-daemon",
+        script: path.join(__dirname, 'src/bot/remote-manager.js'),
+        cwd: __dirname,
+        autorestart: true,
+        max_restarts: 100,
+        log_date_format: 'YYYY-MM-DD HH:mm:ss',
+        error_file: `./logs/daemon-error.log`,
+        out_file: `./logs/daemon-out.log`,
+        env: {
+            NODE_ENV: 'production'
+        }
+    }
+];
+
 module.exports = {
-    apps: accounts.map((name, index) => ({
+    apps: [
+        ...baseApps,
+        ...accounts.map((name, index) => ({
         name: `gpay-${name}`,
         script: path.join(__dirname, 'src/bot/bot.js'),
         args: name,

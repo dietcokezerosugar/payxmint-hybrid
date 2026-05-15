@@ -16,12 +16,7 @@ export async function POST(req: NextRequest) {
     let merchantId = session?.user?.merchantId;
 
     if (!merchantId) {
-      try {
-        const firstMerchant = await prisma.merchant.findFirst({ select: { id: true } });
-        merchantId = firstMerchant?.id;
-      } catch (e) {
-        console.warn("Merchant table missing during recharge init");
-      }
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     if (!merchantId) {

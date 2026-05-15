@@ -15,6 +15,7 @@ import {
   XCircle,
   ArrowUpRight,
 } from "lucide-react";
+import { exportToCSV } from "@/lib/csv";
 
 export default function MasterTransactionLedger() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -76,6 +77,20 @@ export default function MasterTransactionLedger() {
     return matchesStatus && matchesSearch;
   });
 
+  const handleExport = () => {
+    const dataToExport = filtered.map(t => ({
+      ID: t.id,
+      Reference: t.referenceId,
+      Merchant: t.merchant?.name,
+      Amount: t.amount,
+      Status: t.status,
+      UTR: t.transaction?.utr,
+      Payer: t.payerName || t.transaction?.payerName,
+      Date: new Date(t.createdAt).toLocaleString()
+    }));
+    exportToCSV(`WaveCollect_Transactions_${new Date().toISOString().slice(0,10)}.csv`, dataToExport);
+  };
+
   return (
     <div className="space-y-6 md:space-y-8 animate-in fade-in duration-500">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -94,6 +109,12 @@ export default function MasterTransactionLedger() {
               Live Sync
             </span>
           </div>
+          <button 
+            onClick={handleExport}
+            className="px-4 py-1.5 bg-slate-900 text-white rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-black transition-all shadow-sm flex items-center gap-2"
+          >
+            Download CSV
+          </button>
         </div>
       </div>
 

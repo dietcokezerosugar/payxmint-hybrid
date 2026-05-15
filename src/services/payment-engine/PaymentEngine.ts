@@ -10,6 +10,8 @@ export interface PaymentIntentOptions {
   orderId: string;     // referenceId from merchant
   customerMobile?: string;
   customerEmail?: string;
+  customerIp?: string;
+  customerDeviceId?: string;
   apiKey: string;
   redirectUrl?: string;
   ip?: string;         // IP for whitelisting check
@@ -41,30 +43,61 @@ export class PaymentEngine {
       throw new Error(`SECURITY_ERROR: IP Address ${ip} is not authorized for this merchant.`);
     }
 
-    // ── SaaS: Check Wallet Balance (Strict Fee Coverage) ────────────
+    // ── SaaS: Settlement Custody Shift ────────────
+    // We no longer require pre-paid wallet balance to cover fees.
+    // Fees will be deducted from the payout settlement balance.
+    /*
     const isTrialActive = keyData.merchant.trialEndsAt && new Date(keyData.merchant.trialEndsAt) > new Date();
-
     if (!keyData.merchant.disableWallet && !isTrialActive) {
       const expectedFee = (amount * (keyData.merchant.commissionRate || 0)) / 100;
       if (keyData.merchant.walletBalance < expectedFee) {
-        throw new Error(`INSUFFICIENT_FUNDS: Wallet balance (₹${keyData.merchant.walletBalance}) cannot cover the transaction fee (₹${expectedFee.toFixed(2)}). Please recharge.`);
+        throw new Error(`INSUFFICIENT_FUNDS: Wallet balance...`);
       }
     }
+    */
 
     // ── 2. Enforce Monthly Limit (BEFORE creating intent) ────────────
     if (keyData.usedAmount >= keyData.monthlyLimit) {
       throw new Error("API Key monthly limit reached. Please upgrade or wait for reset.");
     }
 
-    // ── 4. Select Merchant GPay Account (Smart SaaS Routing) ────────
-    const account = await GatewayRouter.selectAccount(keyData.merchantId, amount);
+    // ── 3. RISK ENGINE: Customer Fingerprinting & Profiling ──────────
+    // We create a unique hash of the customer's identity footprint
+    const rawFingerprint = (options.customerMobile || "") + (options.customerIp || "") + (options.customerDeviceId || "");
+    const fingerprint = rawFingerprint.length > 5 
+      ? crypto.createHash("sha256").update(rawFingerprint).digest("hex")
+      : crypto.createHash("sha256").update(orderId + Date.now().toString()).digest("hex"); // Fallback to unique if no data provided
 
-    if (!account) {
-      throw new Error("ROUTING_ERROR: No available gateway accounts fit this amount or limits are exceeded.");
+    let customer = await prisma.customer.findUnique({ where: { fingerprint } });
+    
+    if (!customer) {
+      // First Time Depositor (FTD) is treated as HIGH risk
+      customer = await prisma.customer.create({
+        data: {
+          fingerprint,
+          phone: options.customerMobile || null,
+          deviceId: options.customerDeviceId || null,
+          ipAddress: options.customerIp || null,
+          riskTier: "HIGH",
+          isFTD: true,
+          totalVolume: 0,
+          successfulTxnCount: 0
+        }
+      });
     }
 
+    // ── 4. Select Merchant GPay Account (Risk-Based Routing) ────────
+    const routingResult = await GatewayRouter.selectAccount(keyData.merchantId, amount, false, customer.riskTier);
+
+    if (!routingResult || !routingResult.account) {
+      // Fallback: If High Risk pool is full, we try Mid Risk if allowed, but for MVP we strict route.
+      throw new Error(`ROUTING_ERROR: No available VPAs for risk tier ${customer.riskTier} fitting this amount/limits.`);
+    }
+
+    const { account, fallbackUsed } = routingResult;
+
     // ── 5. Generate UPI Deep Link (exactly like BloomXHub) ───────────
-    const merchantName = keyData.merchant.businessName || keyData.merchant.name;
+    const merchantName = keyData.merchant.brandName || keyData.merchant.businessName || keyData.merchant.name;
     const upiParams = new URLSearchParams({
       pa: account.upiId,
       pn: merchantName,
@@ -90,14 +123,30 @@ export class PaymentEngine {
           apiKeyId: keyData.id,
           amount,
           referenceId: orderId,
-          customerMobile: customerMobile || null,
-          customerEmail: customerEmail || null,
+          customerMobile: options.customerMobile || null,
+          customerEmail: options.customerEmail || null,
+          customerId: customer.id,
+          customerRiskTier: customer.riskTier,
           redirectUrl: redirectUrl || keyData.merchant.redirectUrl || null,
           upiDeepLink,
           paymentToken,
           expireAt,
         },
       });
+
+      // ── 8. Log the Routing Decision ──────────────────────────────
+      await prisma.routingDecision.create({
+        data: {
+          paymentIntentId: intent.id,
+          customerRiskTier: customer.riskTier,
+          ticketSize: amount <= 500 ? "SMALL" : amount <= 5000 ? "MEDIUM" : "LARGE",
+          selectedPool: account.riskTier,
+          selectedBank: account.name,
+          fallbackUsed: fallbackUsed,
+          limitsApplied: JSON.stringify({ min: account.minTicket, max: account.maxTicket, daily: account.dailyLimit })
+        }
+      });
+
       return intent;
     } catch (e: any) {
       if (e.code === 'P2002') throw new Error("Order ID already exists");
@@ -115,8 +164,9 @@ export class PaymentEngine {
     const merchant = await prisma.merchant.findUnique({ where: { id: merchantId } });
     if (!merchant) throw new Error("Merchant not found");
 
-    const account = await GatewayRouter.selectAccount(merchantId, amount, true);
-    if (!account) throw new Error("No admin accounts available for recharge.");
+    const routingResult = await GatewayRouter.selectAccount(merchantId, amount, true);
+    if (!routingResult || !routingResult.account) throw new Error("No admin accounts available for recharge.");
+    const { account } = routingResult;
 
     const orderId = `RCG_${Math.floor(Date.now() / 1000)}_${Math.floor(Math.random() * 1000)}`;
     const upiParams = new URLSearchParams({

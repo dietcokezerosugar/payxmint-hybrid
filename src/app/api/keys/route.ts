@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/lib/auth";
 import crypto from "crypto";
 
 export async function GET() {
-  const merchant = await prisma.merchant.findFirst();
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.merchantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const merchant = await prisma.merchant.findUnique({ where: { id: session.user.merchantId } });
   if (!merchant) return NextResponse.json({ status: "success", data: [] });
 
   const keys = await prisma.apiKey.findMany({
@@ -14,7 +18,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const merchant = await prisma.merchant.findFirst();
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.merchantId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const merchant = await prisma.merchant.findUnique({ where: { id: session.user.merchantId } });
   if (!merchant) return NextResponse.json({ status: "failure", message: "No merchant found" }, { status: 404 });
 
   const body = await req.json();
